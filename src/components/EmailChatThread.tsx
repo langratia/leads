@@ -203,22 +203,40 @@ export default function EmailChatThread({
         }
       }
 
-      // Invoke Supabase Edge Function to dispatch via Resend
-      const { error } = await supabase.functions.invoke("send-email", {
-        body: {
-          thread_id: activeThreadId,
-          to_email: leadEmail,
-          subject: `Re: LANGRATIA ${initialCategory || "Enterprise Software"} — ${companyName || leadName}`,
-          body_text: textToSend,
-          body_html: `<div style="font-family:sans-serif;color:#111;line-height:1.6;">${textToSend.replace(
-            /\n/g,
-            "<br/>"
-          )}</div>`,
-        },
-      });
+      // Dispatch email via Resend Cloudflare Edge proxy
+      try {
+        const sendRes = await fetch("/api/email/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(localStorage.getItem("leads_auth_token")
+              ? { Authorization: `Bearer ${localStorage.getItem("leads_auth_token")}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            thread_id: activeThreadId,
+            to_email: leadEmail,
+            subject: `Re: LANGRATIA ${initialCategory || "Enterprise Software"} — ${companyName || leadName}`,
+            body_text: textToSend,
+            body_html: `<div style="font-family:sans-serif;color:#111;line-height:1.6;">${textToSend.replace(
+              /\n/g,
+              "<br/>"
+            )}</div>`,
+          }),
+        });
 
-      if (error) {
-        console.warn("Edge function send-email notice:", error.message);
+        if (!sendRes.ok) {
+          await supabase.functions.invoke("send-email", {
+            body: {
+              thread_id: activeThreadId,
+              to_email: leadEmail,
+              subject: `Re: LANGRATIA ${initialCategory || "Enterprise Software"} — ${companyName || leadName}`,
+              body_text: textToSend,
+            },
+          }).catch(() => {});
+        }
+      } catch (dispatchErr) {
+        console.warn("Outbound dispatch notice:", dispatchErr);
       }
     } catch (err) {
       console.warn("Email logged in UI thread with live optimistic state:", err);
