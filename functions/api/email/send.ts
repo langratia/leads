@@ -6,6 +6,8 @@ interface Env {
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
   NOTIFICATION_EMAIL?: string;
+  SENDER_EMAIL?: string;
+  SENDER_NAME?: string;
 }
 
 const CORS_HEADERS = {
@@ -54,11 +56,13 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
         { status: 500, headers: CORS_HEADERS }
       );
     }
-    const notificationEmail = env.NOTIFICATION_EMAIL || "allan.info.comp@gmail.com";
+    const senderAddress = env.SENDER_EMAIL || "inquiries@langratia.com";
+    const senderName = env.SENDER_NAME || "LANGRATIA Inquiries";
+    const notificationEmail = env.NOTIFICATION_EMAIL || senderAddress;
 
     // 1. Dispatch through Resend
     let messageId: string | null = null;
-    let senderUsed = "LANGRATIA Inquiries <inquiries@langratia.com>";
+    let senderUsed = `${senderName} <${senderAddress}>`;
 
     const emailPayload: any = {
       from: senderUsed,
@@ -82,7 +86,7 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
     if (!resendRes.ok) {
       const errData = await resendRes.json().catch(() => ({}));
       console.warn("Retrying with onboarding sender:", errData);
-      senderUsed = "LANGRATIA Inquiries <onboarding@resend.dev>";
+      senderUsed = `${senderName} <onboarding@resend.dev>`;
       emailPayload.from = senderUsed;
 
       resendRes = await fetch("https://api.resend.com/emails", {
@@ -117,7 +121,7 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
           body: JSON.stringify({
             thread_id,
             direction: "OUTBOUND",
-            from_email: "inquiries@langratia.com",
+            from_email: senderAddress,
             to_email,
             body_text,
             body_html,

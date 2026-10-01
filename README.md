@@ -34,7 +34,7 @@ Scheduled calls, WhatsApp check-ins, and meetings, bucketed into **overdue**, **
 
 ### Lead scoring
 
-Rule-based, capped at 100 (`src/lib/leads.ts`). Scores category fit, geographic fit against a configured list of target areas, contact completeness, and product interest. Computed on create and re-computed on edit. The current target lists are hardcoded — see [White-labelling](#white-labelling).
+Rule-based, capped at 100 (`src/crm/leads/model/scoring.ts`). Scores category fit, geographic fit against the configured target areas, contact completeness, and product interest. Computed on create and re-computed on edit.
 
 ### Email threads
 
@@ -115,20 +115,22 @@ Leads is built toward the feature set of a modern AI-native outbound engine, sco
 
 ## White-labelling
 
-The same build serves LANGRATIA and any client deployment. What changes per deployment:
+The same build serves LANGRATIA and any client deployment. Every client-specific value is read from `src/config/index.ts`; nothing else in `src/` may hardcode one.
 
-| Layer | Currently | Per-deployment target |
+| Layer | Status | Set by |
 | --- | --- | --- |
-| **Brand** | LANGRATIA name, copy, and colours throughout | Client brand, from a config object or theme tokens |
-| **Currency** | `formatValue()` hardcodes `en-UG` / UGX, no decimals | Configured locale and currency code — KES, USD, GBP, ZAR |
-| **Scoring geography** | `TARGET_AREAS` hardcodes Kampala-area localities | Configured list of target areas for the deployment's market |
-| **Scoring categories** | `TARGET_CATEGORIES` hardcodes one sector list | Configured list of the client's target sectors |
-| **Email sender** | `functions/api/email/send.ts` hardcodes the LANGRATIA sender and falls back to the Resend onboarding address | Client sender domain and reply-to address |
-| **Auth** | One Supabase project, all staff share every lead | Per-client Supabase project, or a tenant column with scoped RLS |
+| **Brand and product name** | ● Configurable | `VITE_BRAND_NAME`, `VITE_BRAND_FULL_NAME`, `VITE_PRODUCT_NAME` |
+| **Links out of the CRM** | ● Configurable | `VITE_SITE_URL`, `VITE_SITE_DOMAIN` |
+| **Currency and locale** | ● Configurable | `VITE_CURRENCY`, `VITE_LOCALE`, `VITE_CURRENCY_DECIMALS` |
+| **Scoring geography and sectors** | ● Configurable | `VITE_TARGET_AREAS`, `VITE_TARGET_CATEGORIES` |
+| **Email sender identity** | ● Configurable | `SENDER_EMAIL`, `SENDER_NAME`, `NOTIFICATION_EMAIL` (server) |
+| **Cross-component event names** | ● Configurable | `VITE_EVENT_NAMESPACE` |
+| **Copy and colour theme** | ○ Hardcoded | Marketing page copy, Tailwind colour values |
+| **Data isolation** | ○ Not implemented | See the access-model note under [Schema](#schema) |
 
-**What is genuinely shared:** the entire CRM — Lead Finder, pipeline, follow-ups, scoring, email threads, lead profile, and the schema. A new client deployment is configuration, not redevelopment.
+**What is genuinely shared:** the entire CRM — Lead Finder, pipeline, follow-ups, scoring, email threads, lead profile, and the schema. For a new client, the work is setting the variables above, applying their Tailwind theme, and pointing them at their own Supabase and Resend projects.
 
-**What a client deployment still needs before it is safe to hand over:** tenant isolation (see the access-model note under [Schema](#schema)), sender-domain verification in Resend, and their own Places and Resend API keys.
+**What a client deployment still needs before handover:** a Tailwind theme for their brand, sender-domain verification in Resend, and their own Places and Resend API keys.
 
 ---
 
@@ -165,15 +167,31 @@ npm run dev               # http://localhost:5174
 
 ### Environment variables
 
+Secrets, needed on every deployment:
+
 | Variable | Used by | Notes |
 | --- | --- | --- |
 | `PLACES_API_KEY` | `functions/api/places/*`, Vite dev proxy | Google Places (New) Text Search key |
 | `SUPABASE_URL` | Server functions | Falls back to a hardcoded project URL |
 | `SUPABASE_ANON_KEY` | Server functions | Anon key — safe to expose, RLS does the gating |
 | `RESEND_API_KEY` | `functions/api/email/send.ts` | Required for outbound email |
+| `SENDER_EMAIL` / `SENDER_NAME` | `functions/api/email/send.ts` | Outbound sender identity |
 | `NOTIFICATION_EMAIL` | `functions/api/email/send.ts` | Reply-to address for outbound mail |
-| `VITE_SUPABASE_URL` | `src/lib/supabase.ts` | Falls back to the hardcoded project URL |
-| `VITE_SUPABASE_ANON_KEY` | `src/lib/supabase.ts` | Falls back to the hardcoded anon key |
+| `VITE_SUPABASE_URL` | `src/core/supabase.ts` | Falls back to the hardcoded project URL |
+| `VITE_SUPABASE_ANON_KEY` | `src/core/supabase.ts` | Falls back to the hardcoded anon key |
+
+White-label configuration, all optional — see [White-labelling](#white-labelling). Every one has a LANGRATIA default in `src/config/index.ts`, so they are only needed when deploying for another client.
+
+| Variable | Default | Sets |
+| --- | --- | --- |
+| `VITE_BRAND_NAME` / `VITE_BRAND_FULL_NAME` | `LANGRATIA` | CRM chrome and login screen |
+| `VITE_PRODUCT_NAME` | `Leads` | Product name beside the brand mark |
+| `VITE_SITE_URL` / `VITE_SITE_DOMAIN` | `https://langratia.com` | Links out of the CRM |
+| `VITE_SENDER_EMAIL` / `VITE_REPLY_TO_EMAIL` | `inquiries@langratia.com` | Sender shown in the email thread |
+| `VITE_DEFAULT_USER_EMAIL` | `sales@langratia.com` | Shown when no session email is available |
+| `VITE_LOCALE` / `VITE_CURRENCY` / `VITE_CURRENCY_DECIMALS` | `en-UG` / `UGX` / `0` | Date and money formatting |
+| `VITE_TARGET_AREAS` / `VITE_TARGET_CATEGORIES` | Kampala areas, SME sectors | Lead scoring and search examples |
+| `VITE_EVENT_NAMESPACE` | `langratia` | Cross-component event names |
 
 **Supabase keys are committed to the repo by design.** The anon key is the public half of Supabase's auth model and is only meaningful alongside RLS. Secrets that must *not* be public — `PLACES_API_KEY` and `RESEND_API_KEY` — belong in `.env` and in Cloudflare's dashboard, not in git.
 
@@ -181,7 +199,7 @@ npm run dev               # http://localhost:5174
 
 ## Architecture
 
-**The browser talks to Supabase directly.** There is no application backend for CRM data. `src/lib/leads.ts` is the data layer; components never construct Supabase queries themselves.
+**The browser talks to Supabase directly.** There is no application backend for CRM data. `src/crm/leads/api/repository.ts` is the data layer; components never construct Supabase queries themselves.
 
 **Cloudflare Pages Functions exist only to keep secrets server-side.** They proxy Google Places (so the API key is never sent to the browser) and dispatch email through Resend. They do raw `fetch` calls against the Supabase REST API — they are not a general-purpose backend.
 
@@ -202,7 +220,7 @@ Inbound replies ──>  Resend webhook  ──>  email_threads, email_messages
 
 ### Schema
 
-Three migrations, applied in order via the Supabase SQL editor. There is no migration runner — the SQL files are the source of truth.
+Four migrations, applied in order via the Supabase SQL editor. There is no migration runner — the SQL files are the source of truth.
 
 | Table | Holds |
 | --- | --- |
@@ -213,6 +231,8 @@ Three migrations, applied in order via the Supabase SQL editor. There is no migr
 | `email_threads` | Conversations, keyed by `participant_email` |
 | `email_messages` | Individual messages within a thread |
 | `search_logs` | Lead Finder usage analytics |
+| `inquiries` | Website scoping submissions, written by the marketing site's contact form |
+| `bookings` | Consultation requests made through the site calendar |
 
 **Access model:** all authenticated staff can read and manage every lead — this is a shared team CRM, and RLS is `using (true)` across the tables. There is no per-user ownership.
 
@@ -222,32 +242,45 @@ Three migrations, applied in order via the Supabase SQL editor. There is no migr
 
 ```text
 src/
-  App.tsx                  Routes, auth gate, session state
-  LeadsShell.tsx           CRM chrome: sidebar, nav, command palette
-  LoginPage.tsx            Staff sign-in
-  data.ts                  Nav structure and section metadata
-  ui.tsx                   Design system: Card, DataTable, StatCard, Badge, Field
-  export-utils.ts          CSV export
-  lib/
-    leads.ts               Data layer — all Supabase access, types, scoring
+  App.tsx                  Routes and auth gate
+  config/
+    index.ts               White-label config — brand, locale, currency,
+                           scoring geography and sectors, sender identity
+  core/                    Shared, product-agnostic
+    ui.tsx                 Design system: Card, DataTable, StatCard, Badge, Field
+    data.ts                Nav structure and section metadata
+    format.ts              Date and money formatting
+    export-utils.ts        CSV export
     supabase.ts            Supabase client
-  sections/
-    leads/                 CRM: one container per section + presentational views
-    Inquiries.tsx          Email threads and consultation bookings
-  pages/                   Public marketing site
-  components/
-    marketing/             Navbar, footer, layout
-    EmailChatThread.tsx    Conversation view and composer
-    CommandPalette.tsx     Cmd/Ctrl+K navigation
+  crm/                     The product clients are given
+    shell/                 LeadsShell, CommandPalette, NotificationsDrawer
+    auth/                  LoginPage
+    leads/                 The main vertical slice
+      index.ts             Public surface — import from "@/crm/leads"
+      model/               types, constants, scoring (pure, no I/O)
+      api/repository.ts    All Supabase CRUD
+      finder/places.ts     Client for the server-side Places proxy
+      *.tsx                One container per route + its view components
+    inquiries/
+      model/               Types and placeholder rows
+      Inquiries.tsx        Email threads and consultation bookings
+      EmailChatThread.tsx  Conversation view and composer
+  marketing/               LANGRATIA's public site — separate product
+    pages/
+    components/
 functions/api/             Cloudflare Pages Functions
-  places/                  Google Places proxy (search, geocode, shared)
+  places/
+    _shared.ts             Auth, CORS, rate limiting, Supabase access
+    _handler.ts            Request parsing — shared with the Vite dev proxy
+    search.ts              GET /api/places/search
+    geocode.ts             GET /api/places/geocode
   email/send.ts            Resend dispatch
 supabase/
   migrations/              Schema, applied manually
-  functions/               Deno edge functions (inbound/outbound email)
+  functions/               Deno edge functions (inbound email)
 ```
 
-**Conventions:** database columns are `snake_case`; TypeScript is `camelCase`. New data access goes in `src/lib/leads.ts`. CRM components import the design system through `@/app/admin/ui`. Mutations call `refresh()` afterward — there is no realtime subscription.
+**Conventions:** database columns are `snake_case`; TypeScript is `camelCase`. Import across folders with the `@/` alias (`@/core/ui`, `@/crm/leads`); import siblings with `./`. New data access goes in `src/crm/leads/api/repository.ts`, new record shapes in `src/crm/leads/model/types.ts`. **No client-specific value may be hardcoded outside `src/config/index.ts`** — brand, currency, locale, target areas, target sectors, and sender identity all come from there. Mutations call `refresh()` afterward — there is no realtime subscription.
 
 ---
 
@@ -265,10 +298,9 @@ Set `PLACES_API_KEY`, `RESEND_API_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` 
 
 - **No automated tests, linter, or CI.** `npm run build` (which typechecks) is the only quality gate.
 - **Migrations are applied by hand.** Nothing verifies the live database matches the SQL files.
-- **`Website Inquiries` runs on mock data.** It queries an `inquiries` table that no migration creates; the error is caught and the section falls back to hardcoded records. Status changes and notes there are local-state only and are lost on refresh.
-- **"AI smart reply" is a template, not a model.** The composer interpolates a canned string after a short delay. There is no LLM call in the codebase.
+- **The composer cannot attach files.** There is no upload path, so replies go out as plain text. Any document referenced in a template has to be sent separately.
+- **Email threads load once on mount** and do not poll or subscribe, so a reply arriving in the inbox does not appear until the thread is reopened. Inbound mail is only ever written to `email_messages` if a Resend webhook is configured; without one the thread stays one-sided.
 - **The `/demo` page is a scripted mock** with hardcoded sample companies, not a live preview.
-- **Email threads load once on mount** and do not poll or subscribe, despite the "auto-synced" label in the UI.
 - **Lead score is rule-based**, not learned from outcomes.
-- **White-labelling is documented, not implemented.** Currency, target areas, target sectors, sender identity, and branding are all still hardcoded to one deployment. The [White-labelling](#white-labelling) table is the specification for what must move into configuration before a second client can be onboarded.
+- **White-labelling is configured, not themed.** Brand, currency, locale, scoring geography, sectors, and sender identity all come from `src/config/index.ts`. Copy and colour are not parameterised, and there is no tenant isolation — a second client needs their own Supabase project. See [White-labelling](#white-labelling).
 - **Google Places returns no email addresses.** The `leads.email` column is only ever populated by manual entry, which is why outreach leads with phone and WhatsApp rather than email.

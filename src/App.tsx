@@ -1,18 +1,19 @@
+import { config } from "@/config";
 import { useEffect, useState } from "react";
 import { Route, Switch, useLocation } from "wouter";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/core/supabase";
 
 // Modular marketing pages
-import HomePage from "./pages/HomePage";
-import FeaturesPage from "./pages/FeaturesPage";
-import DemoPage from "./pages/DemoPage";
-import PipelinePage from "./pages/PipelinePage";
-import PricingPage from "./pages/PricingPage";
-import FaqPage from "./pages/FaqPage";
+import HomePage from "@/marketing/pages/HomePage";
+import FeaturesPage from "@/marketing/pages/FeaturesPage";
+import DemoPage from "@/marketing/pages/DemoPage";
+import PipelinePage from "@/marketing/pages/PipelinePage";
+import PricingPage from "@/marketing/pages/PricingPage";
+import FaqPage from "@/marketing/pages/FaqPage";
 
 // App & Auth components
-import LoginPage from "./LoginPage";
-import LeadsShell from "./LeadsShell";
+import LoginPage from "@/crm/auth/LoginPage";
+import LeadsShell from "@/crm/shell/LeadsShell";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -43,7 +44,7 @@ export default function App() {
 
   const handleLoginSuccess = async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
-    setSession(currentSession || { user: { email: "sales@langratia.com" } });
+    setSession(currentSession || { user: { email: config.defaultUserEmail } });
     setLocation("/app");
   };
 
@@ -53,7 +54,7 @@ export default function App() {
         <div className="flex flex-col items-center gap-3">
           <span className="h-12 w-12 animate-spin rounded-full border-4 border-slate-800 border-t-sky-400" />
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Initializing Langratia Leads…
+            Initializing {config.brandName} {config.productName}…
           </p>
         </div>
       </div>

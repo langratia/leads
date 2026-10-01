@@ -1,10 +1,5 @@
-import {
-  CORS_HEADERS,
-  Env,
-  getAuthUser,
-  rateLimitHit,
-  geocodeAddress,
-} from "./_shared";
+import { CORS_HEADERS, Env, getAuthUser, rateLimitHit } from "./_shared";
+import { errorStatus, handlePlaces } from "./_handler";
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -18,10 +13,8 @@ export async function onRequestGet(context: {
   try {
     const url = new URL(request.url);
 
-    const auth = request.headers.get("Authorization") || "";
-    const token = auth.replace(/^Bearer\s+/i, "");
-    const user = await getAuthUser(token, env);
-    if (!user) {
+    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    if (!(await getAuthUser(token, env))) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized. Sign in to the CRM." }),
         { status: 401, headers: CORS_HEADERS }
@@ -38,28 +31,13 @@ export async function onRequestGet(context: {
       );
     }
 
-    const address = (url.searchParams.get("address") || "").trim();
-    if (!address) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing address." }),
-        { status: 400, headers: CORS_HEADERS }
-      );
-    }
-
-    const hit = await geocodeAddress(env, address);
-    return new Response(
-      JSON.stringify({ success: !!hit, result: hit }),
-      { status: 200, headers: CORS_HEADERS }
-    );
+    const { status, body } = await handlePlaces("geocode", url.searchParams, env);
+    return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
   } catch (err: any) {
     console.error("Geocoding exception:", err);
-    const status = err?.status && err.status >= 400 && err.status < 600 ? err.status : 502;
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: err?.message || "Geocoding failed",
-      }),
-      { status, headers: CORS_HEADERS }
+      JSON.stringify({ success: false, error: err?.message || "Geocoding failed" }),
+      { status: errorStatus(err), headers: CORS_HEADERS }
     );
   }
 }
