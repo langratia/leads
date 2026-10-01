@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
-import LandingPage from "./LandingPage";
+
+// Modular marketing pages
+import HomePage from "./pages/HomePage";
+import FeaturesPage from "./pages/FeaturesPage";
+import DemoPage from "./pages/DemoPage";
+import PipelinePage from "./pages/PipelinePage";
+import PricingPage from "./pages/PricingPage";
+import FaqPage from "./pages/FaqPage";
+
+// App & Auth components
 import LoginPage from "./LoginPage";
 import LeadsShell from "./LeadsShell";
 
@@ -77,12 +86,37 @@ export default function App() {
 
   return (
     <Switch>
-      {/* Public Marketing Landing Page */}
+      {/* 1. Overview / Home Page */}
       <Route path="/">
-        <LandingPage session={session} onLogout={handleLogout} />
+        <HomePage session={session} onLogout={handleLogout} />
       </Route>
 
-      {/* Staff Login Page */}
+      {/* 2. Features Page */}
+      <Route path="/features">
+        <FeaturesPage session={session} onLogout={handleLogout} />
+      </Route>
+
+      {/* 3. Interactive Live Demo Page */}
+      <Route path="/demo">
+        <DemoPage session={session} onLogout={handleLogout} />
+      </Route>
+
+      {/* 4. Deal Pipeline & Workflow Page */}
+      <Route path="/pipeline">
+        <PipelinePage session={session} onLogout={handleLogout} />
+      </Route>
+
+      {/* 5. Pricing & Plans Page */}
+      <Route path="/pricing">
+        <PricingPage session={session} onLogout={handleLogout} />
+      </Route>
+
+      {/* 6. FAQ Page */}
+      <Route path="/faq">
+        <FaqPage session={session} onLogout={handleLogout} />
+      </Route>
+
+      {/* Staff Login Portal */}
       <Route path="/login">
         {session ? (
           <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
@@ -91,7 +125,7 @@ export default function App() {
         )}
       </Route>
 
-      {/* CRM Application Workspace */}
+      {/* Authenticated CRM OS */}
       <Route path="/app">
         {session ? (
           <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
@@ -116,9 +150,9 @@ export default function App() {
         )}
       </Route>
 
-      {/* Fallback route */}
+      {/* Fallback to Home Page */}
       <Route>
-        <LandingPage session={session} onLogout={handleLogout} />
+        <HomePage session={session} onLogout={handleLogout} />
       </Route>
     </Switch>
   );
