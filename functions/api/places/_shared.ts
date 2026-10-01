@@ -16,7 +16,6 @@ export const CORS_HEADERS = {
 export const DEFAULT_SUPABASE_URL = "https://sriwrevcvwrzkgppzvst.supabase.co";
 export const DEFAULT_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyaXdyZXZjdndyemtncHB6dnN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjE4NTcsImV4cCI6MjEwMjE5Nzg1N30.jsBudnBdVjhGGqyd9HxBHuepjnqo_lD7H9uwtyjkHX8";
-export const DEFAULT_PLACES_API_KEY = "AIzaSyCf_-OtSx1IE7QD3StAuDGX-abzQzh8EyA";
 
 const FIELD_MASK = [
   "places.id",
@@ -50,10 +49,6 @@ export function normalize(p: any) {
 
 export async function getAuthUser(token: string, env: Env): Promise<{ id: string } | null> {
   if (!token) return null;
-  // Support dev bypass token
-  if (token === "dev-token" || token === "dev-bypass") {
-    return { id: "dev-user" };
-  }
 
   const url = env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const anon = env.SUPABASE_ANON_KEY || DEFAULT_ANON_KEY;
@@ -100,7 +95,10 @@ export async function searchPlaces(
     pageToken?: string;
   }
 ): Promise<{ results: any[]; nextPageToken: string | null }> {
-  const apiKey = env.PLACES_API_KEY || DEFAULT_PLACES_API_KEY;
+  const apiKey = env.PLACES_API_KEY;
+  if (!apiKey) {
+    throw new Error("PLACES_API_KEY is not configured on Cloudflare");
+  }
   const body: Record<string, any> = { textQuery: opts.q, pageSize: 20 };
   if (opts.type) body.includedType = opts.type;
   if (opts.pageToken) body.pageToken = opts.pageToken;
@@ -135,7 +133,8 @@ export async function searchPlaces(
 }
 
 export async function geocodeAddress(env: Env, address: string) {
-  const apiKey = env.PLACES_API_KEY || DEFAULT_PLACES_API_KEY;
+  const apiKey = env.PLACES_API_KEY;
+  if (!apiKey) return null;
   const body = { textQuery: address, pageSize: 1 };
   const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",

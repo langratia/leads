@@ -330,6 +330,31 @@ export default function Inquiries() {
           setSelectedInquiryId(mapped[0].id);
         }
       }
+
+      const { data: bData } = await supabase
+        .from("bookings")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (bData && bData.length > 0) {
+        const mappedBookings: BookingItem[] = bData.map((b: any) => ({
+          id: b.id,
+          name: b.client_name || b.name || "Client",
+          email: b.email || "",
+          phone: b.phone || "+256 700 000 000",
+          date: b.requested_date || b.date || "Today",
+          time: b.requested_time || b.time || "14:00 EAT",
+          notes: b.notes || "",
+          createdAt: b.created_at || new Date().toISOString(),
+          status: (b.status === "COMPLETED" || b.status === "CANCELLED") ? b.status : "CONFIRMED",
+          outcome: b.outcome || "",
+          meetLink: b.meet_link || "https://meet.google.com/ln-scop-int",
+        }));
+        setBookings(mappedBookings);
+        if (mappedBookings.length > 0 && !mappedBookings.some((mb: BookingItem) => mb.id === selectedBookingId)) {
+          setSelectedBookingId(mappedBookings[0].id);
+        }
+      }
     } catch {
       /* fallback */
     } finally {

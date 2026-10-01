@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/app/admin/ui";
 import { useLeadsData, useLeadProfile, LeadsGate } from "./leads-hooks";
 import AllLeads from "./AllLeads";
@@ -13,6 +13,12 @@ export default function LeadsAllPage() {
   const profile = useLeadProfile();
   const [showAdd, setShowAdd] = useState(false);
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const handleOpen = () => setShowAdd(true);
+    window.addEventListener("langratia:open-add-lead", handleOpen);
+    return () => window.removeEventListener("langratia:open-add-lead", handleOpen);
+  }, []);
 
   const bulkStatus = async (ids: string[], status: string) => {
     await bulkUpdate(ids, { status });

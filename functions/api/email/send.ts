@@ -1,3 +1,5 @@
+import { getAuthUser } from "../places/_shared";
+
 // Edge Function for Outbound Email Dispatch via Resend
 interface Env {
   RESEND_API_KEY?: string;
@@ -27,8 +29,16 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
     const authHeader = request.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
+    const user = await getAuthUser(token, env);
+    if (!user) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized. Sign in to the CRM to send emails." }),
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
     const body: any = await request.json().catch(() => ({}));
-    const { thread_id, to_email, subject, body_text, body_html, created_by } = body;
+    const { thread_id, to_email, subject, body_text, body_html } = body;
 
     if (!to_email || (!body_text && !body_html)) {
       return new Response(
@@ -112,7 +122,7 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
             body_text,
             body_html,
             message_id: messageId,
-            created_by: created_by || null,
+            created_by: user.id,
           }),
         });
 
