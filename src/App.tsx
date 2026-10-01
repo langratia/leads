@@ -20,32 +20,6 @@ export default function App() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const devBypass = window.location.hash.includes("#dev");
-
-    if (devBypass) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setSession(session);
-          setCheckingAuth(false);
-          return;
-        }
-        supabase.auth
-          .signInWithPassword({
-            email: "dev@langratia.local",
-            password: "dev-langratia-admin",
-          })
-          .then(({ data, error }) => {
-            if (error) {
-              setSession({ user: { email: "dev@langratia.local" } } as any);
-            } else {
-              setSession(data.session);
-            }
-            setCheckingAuth(false);
-          });
-      });
-      return;
-    }
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setCheckingAuth(false);

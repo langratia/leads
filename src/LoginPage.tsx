@@ -38,23 +38,6 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
     setLoading(false);
   };
 
-  const handleDevBypass = async () => {
-    setLoading(true);
-    localStorage.setItem("leads_auth_token", "dev-token");
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: "dev@langratia.local",
-      password: "dev-langratia-admin",
-    });
-    if (!error && data?.session?.access_token) {
-      localStorage.setItem("leads_auth_token", data.session.access_token);
-      onLoginSuccess();
-    } else {
-      // In dev bypass, allow proceeding with dev-token
-      onLoginSuccess();
-    }
-    setLoading(false);
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-black px-4 py-16">
       <div className="w-full max-w-md">
@@ -146,15 +129,6 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
             Internal sales operating system.
           </div>
-
-          <button
-            type="button"
-            onClick={handleDevBypass}
-            className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-800 py-2.5 text-xs font-semibold text-slate-400 transition-colors hover:border-sky-500/50 hover:bg-sky-500/5 hover:text-sky-400"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Dev bypass (quick login)
-          </button>
         </div>
       </div>
     </div>
