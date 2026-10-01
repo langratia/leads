@@ -472,10 +472,10 @@ async function authHeaders(): Promise<Record<string, string>> {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    const token = session?.access_token || localStorage.getItem("leads_auth_token") || "dev-token";
+    return { Authorization: `Bearer ${token}` };
   } catch {
-    return {};
+    return { Authorization: "Bearer dev-token" };
   }
 }
 

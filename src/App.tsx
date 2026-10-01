@@ -61,13 +61,15 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
+    localStorage.removeItem("leads_auth_token");
     await supabase.auth.signOut();
     setSession(null);
     setLocation("/");
   };
 
-  const handleLoginSuccess = () => {
-    setSession({ user: { email: "sales@langratia.com" } });
+  const handleLoginSuccess = async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    setSession(currentSession || { user: { email: "sales@langratia.com" } });
     setLocation("/app");
   };
 

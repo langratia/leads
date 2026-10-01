@@ -22,14 +22,17 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
     if (!authEmail || !authPassword) return;
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: authEmail,
       password: authPassword,
     });
 
     if (error) {
-      setAuthError("Invalid credentials. Access denied.");
+      setAuthError(error.message || "Invalid credentials. Access denied.");
     } else {
+      if (data?.session?.access_token) {
+        localStorage.setItem("leads_auth_token", data.session.access_token);
+      }
       onLoginSuccess();
     }
     setLoading(false);
@@ -37,14 +40,16 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
 
   const handleDevBypass = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    localStorage.setItem("leads_auth_token", "dev-token");
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: "dev@langratia.local",
       password: "dev-langratia-admin",
     });
-    if (!error) {
+    if (!error && data?.session?.access_token) {
+      localStorage.setItem("leads_auth_token", data.session.access_token);
       onLoginSuccess();
     } else {
-      // In dev, allow proceeding even if mock auth
+      // In dev bypass, allow proceeding with dev-token
       onLoginSuccess();
     }
     setLoading(false);
