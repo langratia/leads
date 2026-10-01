@@ -3,6 +3,7 @@ import {
   Bell,
   Command,
   ExternalLink,
+  Globe,
   LogOut,
   Menu,
   X,
@@ -148,6 +149,16 @@ export default function LeadsShell({
 
         {/* Footer: User & Website link */}
         <div className="border-t border-slate-800/80 p-3 space-y-2">
+          <a
+            href="/"
+            className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-slate-400 hover:bg-[#121724] hover:text-white transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Globe className="h-3.5 w-3.5 text-sky-400" />
+              Leads Overview
+            </span>
+            <span className="text-[10px] text-sky-400">Public Page</span>
+          </a>
           <a
             href="https://langratia.com"
             target="_blank"

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Lock, Mail, ShieldCheck, ArrowRight } from "lucide-react";
+import { Lock, Mail, ShieldCheck, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [authEmail, setAuthEmail] = useState("");
@@ -53,6 +53,16 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
   return (
     <div className="flex min-h-screen items-center justify-center bg-black px-4 py-16">
       <div className="w-full max-w-md">
+        <div className="mb-6">
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Langratia Leads
+          </a>
+        </div>
+
         {/* Brand */}
         <div className="mb-8 flex flex-col items-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 to-sky-300 text-xl font-black text-black shadow-lg shadow-sky-500/20">
