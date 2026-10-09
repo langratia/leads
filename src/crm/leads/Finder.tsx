@@ -120,11 +120,13 @@ export default function Finder({
   onSaveBusiness,
   onLeadsChanged,
   onOpenSavedLead,
+  onOpenRoutePlanner,
 }: {
   leads: Lead[];
   onSaveBusiness: (b: FinderSearchResult) => void;
   onLeadsChanged?: () => void;
   onOpenSavedLead?: (leadId: string) => void;
+  onOpenRoutePlanner?: () => void;
 }) {
   const toast = useToast();
 
@@ -567,31 +569,44 @@ export default function Finder({
                 </span>
               )}
             </div>
-            {results.length > 0 && (
-              <div className="flex items-center gap-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  aria-label="Sort results"
-                  className="cursor-pointer rounded-lg border border-slate-800 bg-[#0b0f19] px-2 py-1.5 text-xs font-semibold text-slate-300 outline-none"
-                >
-                  <option value="relevance">Sort: Relevance</option>
-                  <option value="rating">Sort: Highest Rating</option>
-                </select>
+            <div className="flex items-center gap-2">
+              {onOpenRoutePlanner && (
                 <button
-                  onClick={() => saveMany(visible)}
-                  disabled={progress != null || unsaved === 0}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-sm shadow-sky-500/20 transition-colors hover:bg-sky-400 disabled:opacity-40"
+                  type="button"
+                  onClick={onOpenRoutePlanner}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-500/20 transition-colors shadow-sm"
+                  title="Plan sequenced multi-stop sales visits in Kampala"
                 >
-                  {progress ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <ListChecks className="h-3 w-3" />
-                  )}
-                  {progress ? `${progress.done}/${progress.total}` : `Save all (${unsaved})`}
+                  <Compass className="h-3.5 w-3.5 text-sky-400" />
+                  <span>Territory Route Planner</span>
                 </button>
-              </div>
-            )}
+              )}
+              {results.length > 0 && (
+                <>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    aria-label="Sort results"
+                    className="cursor-pointer rounded-lg border border-slate-800 bg-[#0b0f19] px-2 py-1.5 text-xs font-semibold text-slate-300 outline-none"
+                  >
+                    <option value="relevance">Sort: Relevance</option>
+                    <option value="rating">Sort: Highest Rating</option>
+                  </select>
+                  <button
+                    onClick={() => saveMany(visible)}
+                    disabled={progress != null || unsaved === 0}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-sm shadow-sky-500/20 transition-colors hover:bg-sky-400 disabled:opacity-40"
+                  >
+                    {progress ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ListChecks className="h-3 w-3" />
+                    )}
+                    {progress ? `${progress.done}/${progress.total}` : `Save all (${unsaved})`}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {results.length === 0 ? (

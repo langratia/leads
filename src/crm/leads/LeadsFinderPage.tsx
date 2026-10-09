@@ -5,12 +5,14 @@ import { useLeadsData, LeadsGate, useLeadProfile } from "./leads-hooks";
 import Finder from "./Finder";
 import LeadProfile from "./LeadProfile";
 import AddLeadModal, { type LeadDraft } from "./AddLeadModal";
+import TerritoryRoutePlannerModal from "./TerritoryRoutePlannerModal";
 
 export default function LeadsFinderPage() {
   const { leads, followups, loading, notInstalled, error, refresh } = useLeadsData();
   const profile = useLeadProfile();
   const [draft, setDraft] = useState<LeadDraft | undefined>(undefined);
   const [showAdd, setShowAdd] = useState(false);
+  const [showRoutePlanner, setShowRoutePlanner] = useState(false);
 
   const selected = profile.selectedId ? leads.find((l) => l.id === profile.selectedId) ?? null : null;
   const selectedFollowups = profile.selectedId
@@ -24,6 +26,7 @@ export default function LeadsFinderPage() {
           leads={leads}
           onLeadsChanged={refresh}
           onOpenSavedLead={profile.open}
+          onOpenRoutePlanner={() => setShowRoutePlanner(true)}
           onSaveBusiness={(b) => {
             setDraft({
               business_name: b.business_name,
@@ -66,6 +69,13 @@ export default function LeadsFinderPage() {
           }}
         />
       )}
+
+      {/* KAMPALA TERRITORY ROUTE PLANNER & NAVIGATION MODAL */}
+      <TerritoryRoutePlannerModal
+        leads={leads}
+        isOpen={showRoutePlanner}
+        onClose={() => setShowRoutePlanner(false)}
+      />
     </div>
   );
 }

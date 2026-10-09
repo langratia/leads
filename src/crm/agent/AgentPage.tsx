@@ -26,6 +26,7 @@ import { api } from "@/core/api";
 import { AgentIcon, FinderIcon, EmailsIcon, FollowupsIcon } from "@/core/icons/AbstractIcons";
 import { useLeadsData } from "@/crm/leads/leads-context";
 import { formatValue } from "@/core/format";
+import ObjectionSimulatorModal from "./ObjectionSimulatorModal";
 
 interface ExecutionStep {
   step: number;
@@ -40,6 +41,7 @@ export default function AgentPage() {
   const [prompt, setPrompt] = useState("");
   const [running, setRunning] = useState(false);
   const [activeWorkflow, setActiveWorkflow] = useState<string | null>(null);
+  const [showObjectionModal, setShowObjectionModal] = useState(false);
 
   // Form states for Auto-Prospector
   const [targetCategory, setTargetCategory] = useState("Medical Clinic");
@@ -233,7 +235,7 @@ export default function AgentPage() {
       </div>
 
       {/* AUTOPILOT ACTION RECIPES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* RECIPE 1: DAILY MORNING BRIEFING */}
         <div className="rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-[#0d121d] to-[#0d121d] p-5 space-y-4 hover:border-amber-400/50 transition-all shadow-lg flex flex-col justify-between">
           <div>
@@ -411,6 +413,42 @@ export default function AgentPage() {
                 Execute Stale Lead Revival
               </>
             )}
+          </button>
+        </div>
+
+        {/* RECIPE 4: SALES BATTLE-CARDS & OBJECTION SIMULATOR */}
+        <div className="rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-950/20 via-[#0d121d] to-[#0d121d] p-5 space-y-4 hover:border-sky-400/50 transition-all shadow-lg flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-lg bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                  <Shield className="h-4 w-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Sales Battle-Cards & Simulator</h3>
+                  <p className="text-xs text-slate-400">Master Uganda B2B objections & pitch drills.</p>
+                </div>
+              </div>
+              <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-300 border border-sky-500/30">
+                Coaching
+              </span>
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg bg-[#07090e]/80 border border-slate-800/80 text-xs text-slate-400 space-y-1">
+              <div className="flex items-center gap-2 text-slate-300 font-semibold">
+                <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+                AI Roleplay & Scorecard
+              </div>
+              <p>Simulate tough objections (tight budgets, Excel nephews, vendor mistrust) with 1-click battle-cards & scripts.</p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowObjectionModal(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 py-2.5 text-xs font-bold text-slate-950 transition-all shadow-md shadow-sky-500/20 cursor-pointer"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Launch Objection Simulator
           </button>
         </div>
       </div>
@@ -741,6 +779,11 @@ export default function AgentPage() {
           </div>
         </div>
       )}
+
+      <ObjectionSimulatorModal
+        isOpen={showObjectionModal}
+        onClose={() => setShowObjectionModal(false)}
+      />
     </div>
   );
 }
