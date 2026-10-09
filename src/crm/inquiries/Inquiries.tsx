@@ -24,6 +24,7 @@ import { config } from "@/config";
 import { api, apiFetch } from "@/core/api";
 import { createLead } from "@/crm/leads";
 import { exportToCSV } from "@/core/export-utils";
+import { downloadICS, getGoogleCalendarUrl } from "@/core/calendar-utils";
 import EmailChatThread from "./EmailChatThread";
 import type { BookingItem, InquiryItem } from "./model/types";
 
@@ -929,7 +930,7 @@ export default function Inquiries() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {selectedBooking.meetLink && (
                         <a
                           href={selectedBooking.meetLink}
@@ -938,6 +939,54 @@ export default function Inquiries() {
                           className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-slate-950 transition-colors hover:bg-sky-400"
                         >
                           <GoogleMeetIcon className="h-3.5 w-3.5" /> Join Google Meet
+                        </a>
+                      )}
+
+                      {selectedBooking.date && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadICS(
+                              {
+                                title: `Scoping Consultation: ${selectedBooking.name}`,
+                                description: `Software Scoping Consultation with ${selectedBooking.name}.\n${
+                                  selectedBooking.meetLink ? 'Google Meet Link: ' + selectedBooking.meetLink : ''
+                                }\nAgenda Notes: ${selectedBooking.notes || 'None'}`,
+                                date: selectedBooking.date,
+                                time: selectedBooking.time,
+                                location: selectedBooking.meetLink || "Google Meet",
+                                attendeeEmail: selectedBooking.email,
+                                durationMinutes: 45,
+                              },
+                              `consultation_${selectedBooking.name.replace(/\s+/g, "_")}`
+                            )
+                          }
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-[#07090e] px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+                          title="Download .ics Calendar Event"
+                        >
+                          <Calendar className="h-3.5 w-3.5 text-sky-400" /> .ics
+                        </button>
+                      )}
+
+                      {selectedBooking.date && (
+                        <a
+                          href={getGoogleCalendarUrl({
+                            title: `Scoping Consultation: ${selectedBooking.name}`,
+                            description: `Software Scoping Consultation with ${selectedBooking.name}.\n${
+                              selectedBooking.meetLink ? 'Google Meet Link: ' + selectedBooking.meetLink : ''
+                            }\nAgenda Notes: ${selectedBooking.notes || 'None'}`,
+                            date: selectedBooking.date,
+                            time: selectedBooking.time,
+                            location: selectedBooking.meetLink || "Google Meet",
+                            attendeeEmail: selectedBooking.email,
+                            durationMinutes: 45,
+                          })}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hidden sm:inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-700 bg-[#07090e] px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+                          title="Add to Google Calendar"
+                        >
+                          Google Cal
                         </a>
                       )}
 

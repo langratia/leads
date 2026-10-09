@@ -17,10 +17,15 @@ import {
   Mail,
   AlertCircle,
   TrendingUp,
+  Sun,
+  Phone,
+  MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 import { api } from "@/core/api";
 import { AgentIcon, FinderIcon, EmailsIcon, FollowupsIcon } from "@/core/icons/AbstractIcons";
 import { useLeadsData } from "@/crm/leads/leads-context";
+import { formatValue } from "@/core/format";
 
 interface ExecutionStep {
   step: number;
@@ -46,11 +51,39 @@ export default function AgentPage() {
   const [executionSteps, setExecutionSteps] = useState<ExecutionStep[]>([]);
   const [drafts, setDrafts] = useState<any[]>([]);
   const [stats, setStats] = useState<{ imported: number; skipped: number } | null>(null);
+  const [briefingData, setBriefingData] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Sending drafted email
   const [sendingIndex, setSendingIndex] = useState<number | null>(null);
   const [sentDrafts, setSentDrafts] = useState<Set<number>>(new Set());
+
+  const runMorningBriefing = async () => {
+    setRunning(true);
+    setActiveWorkflow("morning_briefing");
+    setErrorMsg(null);
+    setExecutionSteps([
+      { step: 1, action: "Pipeline Intelligence Scan", detail: "Analyzing deals, overdue follow-ups, and conversion velocity...", status: "in_progress", timestamp: new Date().toLocaleTimeString() },
+    ]);
+    setExecutionSummary(null);
+    setDrafts([]);
+    setStats(null);
+
+    try {
+      const res = await api.agent.run({ workflow: "morning_briefing" });
+      setExecutionSteps(res.steps || []);
+      setExecutionSummary(res.summary);
+      if (res.briefing) {
+        setBriefingData(res.briefing);
+      }
+      await refresh();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Morning briefing generation failed.");
+    } finally {
+      setRunning(false);
+      setActiveWorkflow(null);
+    }
+  };
 
   const runProspectorWorkflow = async () => {
     setRunning(true);
@@ -200,71 +233,119 @@ export default function AgentPage() {
       </div>
 
       {/* AUTOPILOT ACTION RECIPES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* RECIPE 1: AUTONOMOUS PROSPECTOR */}
-        <div className="rounded-xl border border-slate-800/80 bg-[#0d121d] p-5 space-y-4 hover:border-sky-500/30 transition-all shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                <FinderIcon className="h-4 w-4" />
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-white">Target Prospecting Campaign</h3>
-                <p className="text-xs text-slate-400">Discover businesses, score them, and draft cold outreach.</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* RECIPE 1: DAILY MORNING BRIEFING */}
+        <div className="rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-[#0d121d] to-[#0d121d] p-5 space-y-4 hover:border-amber-400/50 transition-all shadow-lg flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <Sun className="h-4 w-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Daily Morning Briefing</h3>
+                  <p className="text-xs text-slate-400">Executive pipeline briefing & priority actions.</p>
+                </div>
               </div>
+              <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">
+                Daily
+              </span>
             </div>
-            <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-300">
-              Autopilot
-            </span>
+
+            <div className="mt-4 p-3 rounded-lg bg-[#07090e]/80 border border-slate-800/80 text-xs text-slate-400 space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-300 font-semibold">
+                <Clock className="h-3.5 w-3.5 text-amber-400" />
+                Pipeline & Action Prioritizer
+              </div>
+              <p>Audits overdue follow-ups, calculates revenue-at-risk, and prepares top 3 high-impact actions for today.</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Category
-              </label>
-              <select
-                value={targetCategory}
-                onChange={(e) => setTargetCategory(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-[#07090e] px-3 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
-              >
-                <option value="Medical Clinic">Medical Clinics</option>
-                <option value="Pharmacy">Pharmacies</option>
-                <option value="Hospital">Hospitals</option>
-                <option value="School">Schools & Colleges</option>
-                <option value="Hotel">Hotels & Lodges</option>
-                <option value="Restaurant">Restaurants</option>
-                <option value="Hardware Store">Hardware Stores</option>
-                <option value="Law Firm">Law Firms</option>
-              </select>
+          <button
+            onClick={runMorningBriefing}
+            disabled={running}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 py-2.5 text-xs font-bold text-slate-950 transition-all shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+          >
+            {running && activeWorkflow === "morning_briefing" ? (
+              <>
+                <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                Synthesizing Briefing...
+              </>
+            ) : (
+              <>
+                <Sun className="h-3.5 w-3.5" />
+                Generate Morning Briefing
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* RECIPE 2: AUTONOMOUS PROSPECTOR */}
+        <div className="rounded-xl border border-slate-800/80 bg-[#0d121d] p-5 space-y-4 hover:border-sky-500/30 transition-all shadow-lg flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <FinderIcon className="h-4 w-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Target Prospecting Campaign</h3>
+                  <p className="text-xs text-slate-400">Discover businesses, score them, and draft cold outreach.</p>
+                </div>
+              </div>
+              <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+                Autopilot
+              </span>
             </div>
 
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Location Area
-              </label>
-              <input
-                type="text"
-                value={targetArea}
-                onChange={(e) => setTargetArea(e.target.value)}
-                placeholder="e.g. Ntinda, Kampala"
-                className="w-full rounded-lg border border-slate-800 bg-[#07090e] px-3 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                  Category
+                </label>
+                <select
+                  value={targetCategory}
+                  onChange={(e) => setTargetCategory(e.target.value)}
+                  className="w-full rounded-lg border border-slate-800 bg-[#07090e] px-2 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                >
+                  <option value="Medical Clinic">Clinics</option>
+                  <option value="Pharmacy">Pharmacies</option>
+                  <option value="Hospital">Hospitals</option>
+                  <option value="School">Schools</option>
+                  <option value="Hotel">Hotels</option>
+                  <option value="Restaurant">Restaurants</option>
+                  <option value="Hardware Store">Hardware</option>
+                  <option value="Law Firm">Law Firms</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Batch Count
-              </label>
-              <select
-                value={targetLimit}
-                onChange={(e) => setTargetLimit(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-800 bg-[#07090e] px-3 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
-              >
-                <option value={5}>5 Leads</option>
-                <option value={10}>10 Leads</option>
-                <option value={20}>20 Leads</option>
-              </select>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                  Area
+                </label>
+                <input
+                  type="text"
+                  value={targetArea}
+                  onChange={(e) => setTargetArea(e.target.value)}
+                  placeholder="Ntinda, Kampala"
+                  className="w-full rounded-lg border border-slate-800 bg-[#07090e] px-2 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                  Count
+                </label>
+                <select
+                  value={targetLimit}
+                  onChange={(e) => setTargetLimit(Number(e.target.value))}
+                  className="w-full rounded-lg border border-slate-800 bg-[#07090e] px-2 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                >
+                  <option value={5}>5 Leads</option>
+                  <option value={10}>10 Leads</option>
+                  <option value={20}>20 Leads</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -281,13 +362,13 @@ export default function AgentPage() {
             ) : (
               <>
                 <Play className="h-3.5 w-3.5 fill-current" />
-                Launch Autonomous Campaign
+                Launch Campaign
               </>
             )}
           </button>
         </div>
 
-        {/* RECIPE 2: STALE LEAD REVIVAL */}
+        {/* RECIPE 3: STALE LEAD REVIVAL */}
         <div className="rounded-xl border border-slate-800/80 bg-[#0d121d] p-5 space-y-4 hover:border-indigo-500/30 transition-all shadow-lg flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
@@ -333,6 +414,133 @@ export default function AgentPage() {
           </button>
         </div>
       </div>
+
+      {/* MORNING BRIEFING EXECUTIVE DASHBOARD (RENDERED WHEN BRIEFING GENERATED) */}
+      {briefingData && (
+        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-[#0d121d] to-[#0d121d] p-6 space-y-5 shadow-2xl animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <Sun className="h-4 w-4" />
+                </span>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Executive Morning Sales Briefing
+                </h3>
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300 border border-amber-500/30">
+                  {briefingData.date}
+                </span>
+              </div>
+              <p className="text-xs text-amber-200/80 font-medium">
+                💡 {briefingData.executiveAdvice}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl border border-slate-800 bg-[#07090e]/80 p-2.5 text-center min-w-[100px]">
+                <div className="text-[10px] font-medium text-slate-500">Pipeline Value</div>
+                <div className="text-sm font-bold text-emerald-400 font-mono">
+                  {formatValue(briefingData.pipelineValue)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-[#07090e]/80 p-2.5 text-center min-w-[90px]">
+                <div className="text-[10px] font-medium text-slate-500">Overdue Tasks</div>
+                <div className={`text-sm font-bold font-mono ${briefingData.overdueCount > 0 ? "text-rose-400" : "text-slate-400"}`}>
+                  {briefingData.overdueCount}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-[#07090e]/80 p-2.5 text-center min-w-[90px]">
+                <div className="text-[10px] font-medium text-slate-500">High Intent</div>
+                <div className="text-sm font-bold text-sky-400 font-mono">
+                  {briefingData.highIntentCount}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TOP 3 ACTION RECOMMENDATIONS */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Top Priority Action Recommendations ({briefingData.urgentActions?.length || 0})
+              </span>
+              <span className="text-[11px] text-slate-500">Direct 1-Click Execution</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {briefingData.urgentActions?.map((act: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="rounded-xl border border-slate-800 bg-[#07090e] p-4 flex flex-col justify-between space-y-3 shadow-md hover:border-slate-700 transition-all"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          act.priority === "Urgent"
+                            ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                            : act.priority === "High"
+                            ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                            : "bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                        }`}
+                      >
+                        {act.priority}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono">Channel: {act.channel}</span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Building className="h-3.5 w-3.5 text-slate-400" />
+                        {act.businessName}
+                      </h4>
+                      {act.category && (
+                        <p className="text-[11px] text-slate-500">{act.category}</p>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-300 bg-[#0d121d] p-2.5 rounded-lg border border-slate-800/80 leading-relaxed">
+                      {act.reason}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800/60 flex items-center gap-2">
+                    {act.phone && (
+                      <a
+                        href={`https://wa.me/${act.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(act.pitchSnippet)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 py-2 text-xs font-bold text-emerald-300 transition-colors"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                        WhatsApp
+                      </a>
+                    )}
+                    {act.phone && (
+                      <a
+                        href={`tel:${act.phone}`}
+                        className="flex items-center justify-center p-2 rounded-lg border border-slate-800 bg-[#0d121d] text-slate-300 hover:text-white hover:border-slate-700 transition-colors"
+                        title="Voice Call"
+                      >
+                        <Phone className="h-3.5 w-3.5 text-sky-400" />
+                      </a>
+                    )}
+                    {act.email && !act.phone && (
+                      <a
+                        href={`mailto:${act.email}?subject=Partnership%20Follow-up&body=${encodeURIComponent(act.pitchSnippet)}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 py-2 text-xs font-bold text-sky-300 transition-colors"
+                      >
+                        <Mail className="h-3.5 w-3.5 text-sky-400" />
+                        Send Email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* INTERACTIVE NATURAL LANGUAGE CONSOLE */}
       <div className="rounded-xl border border-slate-800/80 bg-[#0d121d] p-5 space-y-4 shadow-xl">

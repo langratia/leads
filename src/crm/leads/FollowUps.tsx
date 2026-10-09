@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCircle2,
   CalendarPlus,
+  Calendar,
   X,
   Loader2,
   Trash2,
@@ -14,6 +15,7 @@ import { Card, StatCard, Avatar, btnPrimary, btnGhost, inputCls, Field, Segmente
 import { StatusBadge } from "./lead-ui";
 import { formatDate, todayIso } from "@/core/format";
 import { completeFollowup, deleteFollowup, addFollowup, type Lead, type LeadFollowup } from "@/crm/leads";
+import { downloadICS } from "@/core/calendar-utils";
 
 type Bucket = "due" | "upcoming" | "done";
 
@@ -152,12 +154,31 @@ export default function FollowUps({
 
                   <div className="flex shrink-0 items-center gap-1.5">
                     {!f.completed && lead && (
-                      <button
-                        onClick={() => setShowAdd(showAdd === f.lead_id ? null : f.lead_id)}
-                        className={btnGhost}
-                      >
-                        <CalendarPlus className="h-3.5 w-3.5" /> Schedule
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadICS({
+                              title: `Follow-up: ${lead.business_name}`,
+                              description: `Scheduled follow-up with ${lead.business_name}. ${f.notes || ""}`,
+                              date: f.followup_date,
+                              time: f.followup_time,
+                              location: lead.address || "Kampala, Uganda",
+                              attendeeEmail: lead.email,
+                            })
+                          }
+                          className="flex cursor-pointer items-center gap-1 rounded bg-slate-800/80 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                          title="Download .ics Calendar Invite"
+                        >
+                          <Calendar className="h-3 w-3 text-sky-400" /> .ics
+                        </button>
+                        <button
+                          onClick={() => setShowAdd(showAdd === f.lead_id ? null : f.lead_id)}
+                          className={btnGhost}
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" /> Schedule
+                        </button>
+                      </div>
                     )}
                     <button
                       onClick={() => doComplete(f)}

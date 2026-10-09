@@ -266,8 +266,39 @@ export const api = {
         stats?: { imported: number; skipped: number };
         drafts?: any[];
         revivedCount?: number;
+        briefing?: any;
         error?: string;
       }>("/api/agent/run", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    async getDossier(payload: { leadId?: string; lead?: any }) {
+      return apiFetch<{
+        success: boolean;
+        dossier: {
+          businessName: string;
+          category: string;
+          sectorOverview: string;
+          corePainPoints: string[];
+          recommendedSolution: {
+            title: string;
+            architecture: string[];
+            estimatedImpact: string;
+          };
+          objectionHandlers: Array<{
+            objection: string;
+            counter: string;
+          }>;
+          whatsAppHook: string;
+          emailPitch: {
+            subject: string;
+            body: string;
+          };
+        };
+        error?: string;
+      }>("/api/agent/dossier", {
         method: "POST",
         body: JSON.stringify(payload),
       });

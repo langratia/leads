@@ -22,12 +22,15 @@ import {
   Sparkles,
   Building,
   MessageSquare,
+  Calendar,
 } from "lucide-react";
 import { Badge, surface } from "@/core/ui";
 import { StatusBadge, PriorityBadge, SourceBadge, stageColor } from "./lead-ui";
 import { formatDateTime, formatDate, formatValue, todayIso } from "@/core/format";
 import { LEAD_STATUSES, ACTIVITY_TYPES, FOLLOWUP_METHODS, addActivity, addFollowup, completeFollowup, convertLead, deleteLead, updateLead, type Lead, type LeadActivity, type LeadFollowup } from "@/crm/leads";
 import WhatsAppModal from "./WhatsAppModal";
+import LeadDossierModal from "./LeadDossierModal";
+import { downloadICS, getGoogleCalendarUrl } from "@/core/calendar-utils";
 
 function WhatsAppIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
@@ -58,6 +61,7 @@ export default function LeadProfile({
   const [actDesc, setActDesc] = useState("");
   const [showFollowup, setShowFollowup] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [showDossier, setShowDossier] = useState(false);
   const [fuDate, setFuDate] = useState(todayIso());
   const [fuTime, setFuTime] = useState("");
   const [fuMethod, setFuMethod] = useState("Call");
@@ -231,6 +235,16 @@ export default function LeadProfile({
             >
               <MessageSquare className="h-3.5 w-3.5" />
               WhatsApp Pitch
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDossier(true)}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-500/25 transition-colors active:scale-95 shadow-sm shadow-sky-500/10"
+              title="Generate Deep AI Market Research & Sales Pitch Dossier"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+              AI Strategy Dossier
             </button>
           </div>
         </div>
@@ -486,27 +500,65 @@ export default function LeadProfile({
                       {f.method || "Call"} {f.notes ? `· ${f.notes}` : ""}
                     </p>
                   </div>
-                  {!f.completed ? (
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      onClick={async () => {
-                        setBusy("fu-" + f.id);
-                        try {
-                          await completeFollowup(f.id, lead.id);
-                          await onChanged();
-                        } finally {
-                          setBusy("");
-                        }
-                      }}
-                      className="flex cursor-pointer items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-emerald-600 hover:text-white transition-colors"
+                      type="button"
+                      onClick={() =>
+                        downloadICS({
+                          title: `Follow-up: ${lead.business_name}`,
+                          description: `Follow-up regarding ${lead.interested_product || "solutions"}. ${f.notes || ""}`,
+                          date: f.followup_date,
+                          time: f.followup_time,
+                          attendeeEmail: lead.email,
+                          location: lead.address || "Kampala, Uganda",
+                        })
+                      }
+                      className="flex cursor-pointer items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                      title="Download .ics Calendar Invite"
                     >
-                      {busy === "fu-" + f.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}{" "}
-                      Done
+                      <Calendar className="h-3 w-3 text-sky-400" />
+                      .ics
                     </button>
-                  ) : (
-                    <Badge tone="green" dot={false}>
-                      Done
-                    </Badge>
-                  )}
+
+                    <a
+                      href={getGoogleCalendarUrl({
+                        title: `Follow-up: ${lead.business_name}`,
+                        description: `Follow-up regarding ${lead.interested_product || "solutions"}. ${f.notes || ""}`,
+                        date: f.followup_date,
+                        time: f.followup_time,
+                        attendeeEmail: lead.email,
+                        location: lead.address || "Kampala, Uganda",
+                      })}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hidden sm:inline-flex cursor-pointer items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                      title="Add to Google Calendar"
+                    >
+                      Google Cal
+                    </a>
+
+                    {!f.completed ? (
+                      <button
+                        onClick={async () => {
+                          setBusy("fu-" + f.id);
+                          try {
+                            await completeFollowup(f.id, lead.id);
+                            await onChanged();
+                          } finally {
+                            setBusy("");
+                          }
+                        }}
+                        className="flex cursor-pointer items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-emerald-600 hover:text-white transition-colors"
+                      >
+                        {busy === "fu-" + f.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}{" "}
+                        Done
+                      </button>
+                    ) : (
+                      <Badge tone="green" dot={false}>
+                        Done
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -621,6 +673,12 @@ export default function LeadProfile({
         isOpen={showWhatsApp}
         onClose={() => setShowWhatsApp(false)}
         onActivityLogged={onChanged}
+      />
+
+      <LeadDossierModal
+        lead={lead}
+        isOpen={showDossier}
+        onClose={() => setShowDossier(false)}
       />
     </div>
   );

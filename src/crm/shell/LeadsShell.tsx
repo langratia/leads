@@ -1,5 +1,5 @@
 import { config } from "@/config";
-import { useEffect, useMemo, useState, type FC } from "react";
+import { useEffect, useMemo, useRef, useState, type FC } from "react";
 import {
   Bell,
   Command,
@@ -9,6 +9,8 @@ import {
   Menu,
   Plus,
   Sparkles,
+  Zap,
+  ArrowRight,
   X,
 } from "lucide-react";
 import { NAV_GROUPS, SECTION_TITLES, type NavGroup, type SectionId } from "@/core/data";
@@ -54,7 +56,7 @@ export default function LeadsShell(props: { userEmail?: string; onLogout: () => 
 }
 
 function Shell({ userEmail, onLogout }: { userEmail?: string; onLogout: () => void }) {
-  const { leads, followups, inquiries } = useLeadsData();
+  const { leads, followups, inquiries, refresh } = useLeadsData();
   const [active, setActive] = useState<SectionId>(() => {
     // 1. Check query parameter ?section=agent
     const q = new URLSearchParams(window.location.search).get("section");
@@ -73,6 +75,84 @@ function Shell({ userEmail, onLogout }: { userEmail?: string; onLogout: () => vo
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+
+  // Real-time inbound lead alert state
+  const seenInquiryIds = useRef<Set<string> | null>(null);
+  const [inboundAlert, setInboundAlert] = useState<{
+    id: string;
+    fullName: string;
+    company?: string;
+    category: string;
+    source: string;
+  } | null>(null);
+
+  // Zero-dependency synthetic Web Audio API chime
+  const playNotificationChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start();
+      osc1.stop(ctx.currentTime + 0.35);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+      gain2.gain.setValueAtTime(0.18, ctx.currentTime + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(ctx.currentTime + 0.12);
+      osc2.stop(ctx.currentTime + 0.55);
+    } catch {
+      // Audio autoplay policy handled gracefully
+    }
+  };
+
+  // Track and alert on new inbound website inquiries
+  useEffect(() => {
+    const currentIds = new Set(inquiries.map((i) => i.id));
+    if (seenInquiryIds.current === null) {
+      seenInquiryIds.current = currentIds;
+      return;
+    }
+
+    const newlyArrived = inquiries.find((i) => !seenInquiryIds.current?.has(i.id));
+    if (newlyArrived) {
+      playNotificationChime();
+      setInboundAlert({
+        id: newlyArrived.id,
+        fullName: newlyArrived.full_name,
+        company: newlyArrived.company || undefined,
+        category: newlyArrived.category || "Inbound Web Inquiry",
+        source: "Website Inquiry",
+      });
+
+      // Auto dismiss after 9 seconds
+      const timer = setTimeout(() => {
+        setInboundAlert((curr) => (curr?.id === newlyArrived.id ? null : curr));
+      }, 9000);
+      return () => clearTimeout(timer);
+    }
+    seenInquiryIds.current = currentIds;
+  }, [inquiries]);
+
+  // Periodic background refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refresh().catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refresh]);
 
   const meta = SECTION_TITLES[active];
   const ActiveView = SECTIONS[active];
@@ -419,6 +499,49 @@ function Shell({ userEmail, onLogout }: { userEmail?: string; onLogout: () => vo
           onClose={() => setNotifOpen(false)}
           onNavigate={navigate}
         />
+      )}
+
+      {/* REAL-TIME INBOUND TOAST NOTIFICATION */}
+      {inboundAlert && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 rounded-2xl border border-emerald-500/50 bg-[#0d121d]/95 p-4 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300 max-w-sm ring-1 ring-emerald-500/30">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <Zap className="h-5 w-5 animate-pulse" />
+          </span>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">
+                New Inbound Lead
+              </span>
+              <button
+                onClick={() => setInboundAlert(null)}
+                className="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <h4 className="text-xs font-bold text-white truncate mt-0.5">
+              {inboundAlert.fullName}
+              {inboundAlert.company && <span className="text-slate-400 font-normal"> · {inboundAlert.company}</span>}
+            </h4>
+
+            <p className="text-[11px] text-slate-400 truncate mt-0.5">
+              Category: {inboundAlert.category}
+            </p>
+
+            <button
+              onClick={() => {
+                navigate("inquiries");
+                setInboundAlert(null);
+              }}
+              className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-3 py-1.5 text-xs font-bold text-slate-950 transition-colors cursor-pointer shadow-md shadow-emerald-500/20"
+            >
+              <span>View Inbound Inquiry</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
