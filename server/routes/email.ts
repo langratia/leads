@@ -142,6 +142,106 @@ emailRouter.post("/send", authMiddleware, async (c) => {
   }
 });
 
+// POST /api/email/bulk - dispatch bulk outreach email campaign
+emailRouter.post("/bulk", authMiddleware, async (c) => {
+  const user = getAuthUser(c);
+  const body = await c.req.json().catch(() => ({}));
+  const { leads = [], subject, template } = body;
+
+  if (!leads.length || !subject || !template) {
+    return c.json({ success: false, error: "leads, subject, and template are required." }, 400);
+  }
+
+  const resendKey = getEnv(c, "RESEND_API_KEY");
+  const senderAddress = getEnv(c, "SENDER_EMAIL", "inquiries@langratia.com");
+  const senderName = getEnv(c, "SENDER_NAME", "LANGRATIA Inquiries");
+  const notificationEmail = getEnv(c, "NOTIFICATION_EMAIL", senderAddress);
+  const adapter = getDataAdapter(c);
+
+  let dispatched = 0;
+  let skipped = 0;
+
+  for (const lead of leads) {
+    const toEmail = lead.email?.trim();
+    if (!toEmail) {
+      skipped++;
+      continue;
+    }
+
+    const recipient = lead.contact_person || lead.business_name || "Team";
+    const personalizedBody = template
+      .replace(/\{name\}/gi, recipient)
+      .replace(/\{business\}/gi, lead.business_name || "")
+      .replace(/\{category\}/gi, lead.category || "organization");
+
+    let messageId: string | null = null;
+
+    if (resendKey) {
+      try {
+        const emailPayload: any = {
+          from: `${senderName} <${senderAddress}>`,
+          to: [toEmail],
+          reply_to: notificationEmail,
+          subject,
+          text: personalizedBody,
+          html: `<div style="font-family:sans-serif;line-height:1.6;">${personalizedBody.replace(/\n/g, "<br/>")}</div>`,
+        };
+
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendKey}`,
+          },
+          body: JSON.stringify(emailPayload),
+        });
+
+        if (resendRes.ok) {
+          const resendData: any = await resendRes.json();
+          messageId = resendData?.id || null;
+        }
+      } catch (err) {
+        console.warn(`Resend dispatch skipped for ${toEmail}:`, err);
+      }
+    }
+
+    try {
+      await adapter.email.saveThreadAndMessage({
+        leadId: lead.id,
+        subject,
+        toEmail,
+        fromEmail: senderAddress,
+        bodyText: personalizedBody,
+        messageId,
+        userId: user?.id,
+        direction: "OUTBOUND",
+      });
+
+      await adapter.activities
+        .create(
+          {
+            lead_id: lead.id,
+            activity_type: "Email Campaign",
+            description: `Bulk campaign email dispatched to ${toEmail}: "${subject}"`,
+          },
+          user?.id
+        )
+        .catch(() => {});
+
+      dispatched++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  return c.json({
+    success: true,
+    total: leads.length,
+    dispatched,
+    skipped,
+  });
+});
+
 function extractEmail(str: string | null | undefined): string {
   if (!str) return "";
   const match = str.match(/<([^>]+)>/);

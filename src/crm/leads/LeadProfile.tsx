@@ -279,6 +279,79 @@ export default function LeadProfile({
             </div>
           </section>
 
+          {/* AI SCORING MATRIX BREAKDOWN */}
+          <section className="rounded-xl border border-slate-800 bg-[#07090e] p-3.5 space-y-2 shadow-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-emerald-400" />
+                AI Qualification Score Matrix ({lead.lead_score}/100)
+              </span>
+              <span
+                className={`text-[11px] font-bold font-mono ${
+                  lead.lead_score >= 60
+                    ? "text-emerald-400"
+                    : lead.lead_score >= 35
+                    ? "text-amber-400"
+                    : "text-slate-400"
+                }`}
+              >
+                {lead.lead_score >= 60
+                  ? "High Intent Tier"
+                  : lead.lead_score >= 35
+                  ? "Moderate Fit"
+                  : "Nurture Tier"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#0b0f19] border border-slate-800/60">
+                <span className="text-slate-400">Direct WhatsApp</span>
+                <span
+                  className={
+                    lead.phone || lead.whatsapp
+                      ? "text-emerald-400 font-bold font-mono"
+                      : "text-slate-600 font-mono"
+                  }
+                >
+                  {lead.phone || lead.whatsapp ? "+10 pts" : "0 pts"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#0b0f19] border border-slate-800/60">
+                <span className="text-slate-400">Verified Email</span>
+                <span
+                  className={
+                    lead.email ? "text-emerald-400 font-bold font-mono" : "text-slate-600 font-mono"
+                  }
+                >
+                  {lead.email ? "+10 pts" : "0 pts"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#0b0f19] border border-slate-800/60">
+                <span className="text-slate-400">Target Industry Sector</span>
+                <span
+                  className={
+                    lead.category ? "text-emerald-400 font-bold font-mono" : "text-slate-600 font-mono"
+                  }
+                >
+                  {lead.category ? "+20 pts" : "0 pts"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#0b0f19] border border-slate-800/60">
+                <span className="text-slate-400">Digital Web Presence</span>
+                <span
+                  className={
+                    lead.website ? "text-emerald-400 font-bold font-mono" : "text-slate-600 font-mono"
+                  }
+                >
+                  {lead.website ? "+5 pts" : "0 pts"}
+                </span>
+              </div>
+            </div>
+          </section>
+
           {/* CONTACT & BUSINESS DETAILS */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <section className="rounded-xl border border-slate-800 bg-[#07090e] p-3.5 space-y-2 shadow-md">

@@ -1,13 +1,13 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
-import { Download, MessageSquare } from "lucide-react";
+import { Download, MessageSquare, Mail, Phone, Users } from "lucide-react";
 import { Card, DataTable, Avatar, Toolbar, btnGhost, type Column } from "@/core/ui";
 import { StatusBadge, PriorityBadge, SourceBadge, leadContact } from "./lead-ui";
 import { formatDate, formatValue } from "@/core/format";
-import { exportToCSV } from "@/core/export-utils";
+import { exportToCSV, exportToVCard } from "@/core/export-utils";
 import { LEAD_STATUSES, LEAD_PRIORITIES, type Lead } from "@/crm/leads";
 import WhatsAppModal from "./WhatsAppModal";
+import BulkWhatsAppModal from "./BulkWhatsAppModal";
+import BulkEmailModal from "./BulkEmailModal";
 
 export default function AllLeads({
   leads,
@@ -27,6 +27,18 @@ export default function AllLeads({
   const [source, setSource] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [whatsAppLead, setWhatsAppLead] = useState<Lead | null>(null);
+  const [bulkWhatsAppOpen, setBulkWhatsAppOpen] = useState(false);
+  const [bulkEmailOpen, setBulkEmailOpen] = useState(false);
+
+  const selectedLeads = useMemo(
+    () => leads.filter((l) => selected.includes(l.id)),
+    [leads, selected]
+  );
+
+  const doVCardExport = () => {
+    const target = selectedLeads.length > 0 ? selectedLeads : filtered;
+    exportToVCard(target, "langratia_contacts");
+  };
 
   const sources = useMemo(
     () => Array.from(new Set(leads.map((l) => l.lead_source))).sort(),
@@ -209,6 +221,9 @@ export default function AllLeads({
             <button onClick={doExport} disabled={filtered.length === 0} className={`${btnGhost} py-1.5`}>
               <Download className="h-3.5 w-3.5" /> CSV
             </button>
+            <button onClick={doVCardExport} disabled={filtered.length === 0} className={`${btnGhost} py-1.5`} title="Export all filtered leads directly to phone contacts file (.vcf)">
+              <Phone className="h-3.5 w-3.5 text-emerald-400" /> Contacts (.vcf)
+            </button>
             <button onClick={toggleAll} disabled={filtered.length === 0} className={`${btnGhost} py-1.5`}>
               {allVisibleSelected ? "Clear selection" : "Select all"}
             </button>
@@ -249,13 +264,43 @@ export default function AllLeads({
                 </option>
               ))}
             </select>
-            <button onClick={() => setSelected([])} className="text-[11px] font-semibold text-slate-500 hover:text-slate-300">
+
+            <div className="h-4 w-px bg-slate-800" />
+
+            <button
+              type="button"
+              onClick={() => setBulkWhatsAppOpen(true)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all active:scale-95"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              WhatsApp Queue ({selected.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBulkEmailOpen(true)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-500/20 transition-all active:scale-95"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Email Campaign ({selected.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={doVCardExport}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-2.5 py-1.5 text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-all active:scale-95"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Export Contacts (.vcf)
+            </button>
+
+            <button onClick={() => setSelected([])} className="text-[11px] font-semibold text-slate-500 hover:text-slate-300 ml-auto">
               Clear
             </button>
           </>
         ) : (
           <span className="text-[11px] text-slate-500">
-            Tick rows to change status or priority in bulk. Click a row to open the lead.
+            Tick rows to launch bulk WhatsApp queues, email campaigns, or export contacts. Click a row to open the lead.
           </span>
         )}
       </div>
@@ -264,6 +309,18 @@ export default function AllLeads({
         lead={whatsAppLead}
         isOpen={!!whatsAppLead}
         onClose={() => setWhatsAppLead(null)}
+      />
+
+      <BulkWhatsAppModal
+        leads={selectedLeads}
+        isOpen={bulkWhatsAppOpen}
+        onClose={() => setBulkWhatsAppOpen(false)}
+      />
+
+      <BulkEmailModal
+        leads={selectedLeads}
+        isOpen={bulkEmailOpen}
+        onClose={() => setBulkEmailOpen(false)}
       />
     </div>
   );
