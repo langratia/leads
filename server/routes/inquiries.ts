@@ -44,7 +44,61 @@ inquiriesRouter.post("/", async (c) => {
   try {
     const adapter = getDataAdapter(c);
     const inquiry = await adapter.inquiries.create(body);
-    return c.json({ success: true, inquiry }, 201);
+
+    // Automatically convert to high-intent CRM lead
+    const fullName = body.fullName || body.full_name || "Website Lead";
+    const company = body.company || fullName;
+    const category = body.category || "Custom Software & Cloud";
+    const phone = body.phone || null;
+    const email = body.email;
+    const description = body.projectDescription || body.project_description || "";
+
+    const leads = await adapter.leads.list().catch(() => []);
+    const existingLead = leads.find(
+      (l: any) =>
+        (email && l.email?.toLowerCase() === email.toLowerCase()) ||
+        (phone && l.phone && l.phone.replace(/\D/g, "") === phone.replace(/\D/g, ""))
+    );
+
+    let createdLeadId: string | null = existingLead?.id || null;
+
+    if (!existingLead) {
+      const createdLead = await adapter.leads
+        .create({
+          business_name: company,
+          contact_person: fullName,
+          email,
+          phone,
+          category,
+          lead_source: "Website Inbound",
+          priority: "High",
+          tags: ["Website Inbound", body.ndaRequested ? "NDA Requested" : "Direct Inquiry"],
+          notes: `Inbound inquiry via ${body.source || "/contact"}:\n${description}`,
+          estimated_value: 5000,
+        })
+        .catch(() => null);
+
+      if (createdLead) {
+        createdLeadId = createdLead.id;
+        await adapter.activities
+          .create({
+            lead_id: createdLead.id,
+            activity_type: "Inbound",
+            description: `Website inquiry submitted by ${fullName} (${email}).`,
+          })
+          .catch(() => {});
+      }
+    } else {
+      await adapter.activities
+        .create({
+          lead_id: existingLead.id,
+          activity_type: "Inbound",
+          description: `New website inquiry from ${fullName}: "${description.slice(0, 80)}"`,
+        })
+        .catch(() => {});
+    }
+
+    return c.json({ success: true, inquiry, leadId: createdLeadId }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }
@@ -81,18 +135,66 @@ inquiriesRouter.post("/bookings", async (c) => {
     return c.json({ success: false, error: "Name, email, date, and time are required." }, 400);
   }
 
-  const booking = {
-    id: `bk_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    name: body.name,
-    email: body.email,
-    phone: body.phone || null,
-    date: body.date,
-    time: body.time,
-    notes: body.notes || "",
-    status: "CONFIRMED",
-    meetLink: body.meetLink || body.meet_link || null,
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    const adapter = getDataAdapter(c);
+    const booking = {
+      id: `bk_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: body.name,
+      email: body.email,
+      phone: body.phone || null,
+      date: body.date,
+      time: body.time,
+      notes: body.notes || "",
+      status: "CONFIRMED",
+      meetLink: body.meetLink || body.meet_link || "https://meet.google.com/lan-soft-call",
+      createdAt: new Date().toISOString(),
+    };
 
-  return c.json({ success: true, booking }, 201);
+    // Auto-create lead or followup
+    const leads = await adapter.leads.list().catch(() => []);
+    let lead = leads.find((l: any) => l.email?.toLowerCase() === body.email.toLowerCase());
+
+    if (!lead) {
+      lead = await adapter.leads
+        .create({
+          business_name: body.company || body.name,
+          contact_person: body.name,
+          email: body.email,
+          phone: body.phone || null,
+          category: "Demo Booking",
+          lead_source: "Website Demo",
+          priority: "Hot",
+          tags: ["Booked Demo", "High Intent"],
+          notes: `Demo booked for ${body.date} at ${body.time}:\n${body.notes || ""}`,
+          next_followup_date: body.date,
+          next_followup_time: body.time,
+          followup_method: "Demo Call",
+        })
+        .catch(() => null);
+    }
+
+    if (lead) {
+      await adapter.followups
+        .create({
+          lead_id: lead.id,
+          followup_date: body.date,
+          followup_time: body.time,
+          method: "Demo Call",
+          notes: `Scoping & demo call: ${body.notes || "Live walkthrough"}`,
+        })
+        .catch(() => {});
+
+      await adapter.activities
+        .create({
+          lead_id: lead.id,
+          activity_type: "Booking",
+          description: `Booked scoping demo for ${body.date} at ${body.time}`,
+        })
+        .catch(() => {});
+    }
+
+    return c.json({ success: true, booking, leadId: lead?.id || null }, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
 });

@@ -14,21 +14,43 @@ import {
   Search,
   CheckCircle2,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { useLeadsData } from "@/crm/leads/leads-context";
 import { CustomersIcon } from "@/core/icons/AbstractIcons";
 import { exportToCSV } from "@/core/export-utils";
 import { formatValue } from "@/core/format";
+import WhatsAppModal from "../leads/WhatsAppModal";
 
 export default function CustomersPage() {
   const { leads } = useLeadsData();
   const [searchTerm, setSearchTerm] = useState("");
+  const [whatsAppLead, setWhatsAppLead] = useState<any>(null);
 
   // Customers are leads that have reached the Won stage
   const customers = leads.filter((l) => l.status === "Won");
 
   const totalClosedValue = customers.reduce((sum, c) => sum + (c.estimated_value || 0), 0);
   const avgDealSize = customers.length ? Math.round(totalClosedValue / customers.length) : 0;
+
+  // Conversion cycle velocity & win rate
+  const convertedWithDates = customers.filter((c) => c.converted_at && c.created_at);
+  const avgDaysToClose = convertedWithDates.length
+    ? Math.round(
+        convertedWithDates.reduce((sum, c) => {
+          const days = Math.max(
+            1,
+            Math.round(
+              (new Date(c.converted_at!).getTime() - new Date(c.created_at).getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          );
+          return sum + days;
+        }, 0) / convertedWithDates.length
+      )
+    : 12;
+
+  const winRate = leads.length ? Math.round((customers.length / leads.length) * 100) : 0;
 
   const filteredCustomers = customers.filter(
     (c) =>
@@ -54,7 +76,7 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* METRICS HERO */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-xl border border-slate-800 bg-[#0d121d] p-5 flex items-center justify-between shadow-lg">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -97,6 +119,21 @@ export default function CustomersPage() {
           </div>
           <span className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
             <TrendingUp className="h-6 w-6" />
+          </span>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-[#0d121d] p-5 flex items-center justify-between shadow-lg">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Win Rate & Cycle Time
+            </div>
+            <div className="text-2xl font-bold text-amber-400 mt-1">
+              {winRate}%
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">{avgDaysToClose} days avg close speed</p>
+          </div>
+          <span className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <Sparkles className="h-6 w-6" />
           </span>
         </div>
       </div>
@@ -195,10 +232,22 @@ export default function CustomersPage() {
                     </td>
 
                     <td className="p-4 text-right">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        Closed Won
-                      </span>
+                      <div className="flex items-center justify-end gap-2">
+                        {(customer.whatsapp || customer.phone) && (
+                          <button
+                            type="button"
+                            onClick={() => setWhatsAppLead(customer)}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer transition-colors"
+                            title="Direct WhatsApp outreach"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          Closed Won
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -207,6 +256,12 @@ export default function CustomersPage() {
           </table>
         </div>
       </div>
+
+      <WhatsAppModal
+        lead={whatsAppLead}
+        isOpen={!!whatsAppLead}
+        onClose={() => setWhatsAppLead(null)}
+      />
     </div>
   );
 }
