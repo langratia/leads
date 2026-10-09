@@ -36,15 +36,32 @@ export function LeadsDataProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [l, f, i] = await Promise.all([fetchLeads(), fetchAllFollowups(), fetchInquiries()]);
-      setLeads(l);
-      setFollowups(f);
-      setInquiries(i);
-      setError("");
-      setNotInstalled(false);
-    } catch (err) {
-      if (err instanceof LeadsNotInstalledError) setNotInstalled(true);
-      else setError((err as Error).message);
+      const [leadsRes, followupsRes, inquiriesRes] = await Promise.allSettled([
+        fetchLeads(),
+        fetchAllFollowups(),
+        fetchInquiries(),
+      ]);
+
+      if (leadsRes.status === "fulfilled") {
+        setLeads(leadsRes.value);
+        setError("");
+        setNotInstalled(false);
+      } else {
+        if (leadsRes.reason instanceof LeadsNotInstalledError) setNotInstalled(true);
+        else setError((leadsRes.reason as Error)?.message || "Failed to load leads");
+      }
+
+      if (followupsRes.status === "fulfilled") {
+        setFollowups(followupsRes.value);
+      } else {
+        setFollowups([]);
+      }
+
+      if (inquiriesRes.status === "fulfilled") {
+        setInquiries(inquiriesRes.value);
+      } else {
+        setInquiries([]);
+      }
     } finally {
       setLoading(false);
     }

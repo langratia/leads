@@ -56,8 +56,19 @@ export default function LeadsShell(props: { userEmail?: string; onLogout: () => 
 function Shell({ userEmail, onLogout }: { userEmail?: string; onLogout: () => void }) {
   const { leads, followups, inquiries } = useLeadsData();
   const [active, setActive] = useState<SectionId>(() => {
+    // 1. Check query parameter ?section=agent
     const q = new URLSearchParams(window.location.search).get("section");
-    return (q as SectionId) in SECTIONS ? (q as SectionId) : "overview";
+    if (q && (q as SectionId) in SECTIONS) return q as SectionId;
+
+    // 2. Check path segments e.g. /crm/emails, /app/agent, /agent
+    const segments = window.location.pathname.toLowerCase().split("/").filter(Boolean);
+    for (const seg of segments) {
+      if ((seg as SectionId) in SECTIONS) return seg as SectionId;
+      if (seg === "leads") return "all";
+      if (seg === "inbox") return "emails";
+    }
+
+    return "overview";
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
@@ -65,6 +76,26 @@ function Shell({ userEmail, onLogout }: { userEmail?: string; onLogout: () => vo
 
   const meta = SECTION_TITLES[active];
   const ActiveView = SECTIONS[active];
+
+  // Listen to browser forward/back buttons
+  useEffect(() => {
+    const handlePop = () => {
+      const q = new URLSearchParams(window.location.search).get("section");
+      if (q && (q as SectionId) in SECTIONS) {
+        setActive(q as SectionId);
+        return;
+      }
+      const segments = window.location.pathname.toLowerCase().split("/").filter(Boolean);
+      for (const seg of segments) {
+        if ((seg as SectionId) in SECTIONS) {
+          setActive(seg as SectionId);
+          return;
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
 
   const navigate = (id: string) => {
     const stripped = id.replace(/^leads_/, "");
@@ -75,7 +106,10 @@ function Shell({ userEmail, onLogout }: { userEmail?: string; onLogout: () => vo
     setMobileOpen(false);
     const url = new URL(window.location.href);
     url.searchParams.set("section", cleanId);
-    window.history.replaceState(null, "", url);
+    if (window.location.pathname.startsWith("/app") || window.location.pathname.startsWith("/crm")) {
+      url.pathname = `/crm/${cleanId}`;
+    }
+    window.history.pushState(null, "", url);
   };
 
   /* Counts shown on the nav, so "what is urgent" is answerable without clicking. */

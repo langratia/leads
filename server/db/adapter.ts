@@ -63,6 +63,7 @@ export function getDataAdapter(c?: Context) {
         method,
         headers,
         body: options?.body ? JSON.stringify(options.body) : undefined,
+        signal: AbortSignal.timeout(8000),
       });
 
       if (res.status === 204) {

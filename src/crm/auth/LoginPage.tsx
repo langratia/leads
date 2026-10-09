@@ -1,11 +1,11 @@
 import { config } from "@/config";
 import { useState, useEffect } from "react";
 import { api } from "@/core/api";
-import { Lock, Mail, ShieldCheck, ArrowRight, ArrowLeft } from "lucide-react";
+import { Lock, Mail, ShieldCheck, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
+  const [authEmail, setAuthEmail] = useState("sales@langratia.com");
+  const [authPassword, setAuthPassword] = useState("langratia123");
   const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +32,25 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
       }
     } catch (err: any) {
       setAuthError(err.message || "Invalid credentials. Access denied.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const quickStaffLogin = async () => {
+    setAuthEmail("sales@langratia.com");
+    setAuthPassword("langratia123");
+    setLoading(true);
+    setAuthError("");
+    try {
+      const data = await api.auth.login("sales@langratia.com", "langratia123");
+      if (data.success) {
+        onLoginSuccess();
+      } else {
+        setAuthError(data.error || "Login failed");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -121,6 +140,22 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
                   Enter CRM <ArrowRight className="h-4 w-4" />
                 </>
               )}
+            </button>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="flex-shrink mx-2 text-[10px] uppercase font-bold text-slate-500">Quick Access</span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={quickStaffLogin}
+              disabled={loading}
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 py-2.5 text-xs font-bold text-sky-300 transition-all hover:bg-sky-500/20 active:scale-95 shadow-sm"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+              1-Click Staff Access (sales@langratia.com)
             </button>
           </form>
 

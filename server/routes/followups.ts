@@ -13,9 +13,10 @@ followupsRouter.get("/", async (c) => {
   try {
     const adapter = getDataAdapter(c);
     const followups = await adapter.followups.list(leadId);
-    return c.json({ success: true, followups });
+    return c.json({ success: true, followups: followups || [] });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
+    console.warn("Followups list fallback:", err.message);
+    return c.json({ success: true, followups: [] });
   }
 });
 

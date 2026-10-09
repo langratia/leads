@@ -93,7 +93,39 @@ export default function App() {
         )}
       </Route>
 
-      {/* Authenticated CRM OS */}
+      {/* Authenticated CRM OS Routes */}
+      <Route path="/app/:rest*">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/crm/:rest*">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/admin/:rest*">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/admin">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
       <Route path="/app">
         {session ? (
           <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
@@ -111,6 +143,46 @@ export default function App() {
       </Route>
 
       <Route path="/leads">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/agent">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/emails">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/customers">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/finder">
+        {session ? (
+          <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        )}
+      </Route>
+
+      <Route path="/inquiries">
         {session ? (
           <LeadsShell userEmail={session.user?.email} onLogout={handleLogout} />
         ) : (
