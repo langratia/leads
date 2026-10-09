@@ -3,7 +3,7 @@
    The API key never reaches the browser: /api/places/* is handled by a
    Cloudflare Pages Function in production and by a Vite dev proxy in dev. */
 
-import { supabase } from "@/core/supabase";
+import { getAuthToken } from "@/core/api";
 
 /* ---------- Lead Finder (Google Places) ----------
    Interactive business search. The Places API key stays server-side:
@@ -31,16 +31,9 @@ export interface FinderSearchResultSet {
 
 const PLACES_BASE = "/api/places/search";
 
-async function authHeaders(): Promise<Record<string, string>> {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const token = session?.access_token || localStorage.getItem("leads_auth_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    return {};
-  }
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function findBusinesses(

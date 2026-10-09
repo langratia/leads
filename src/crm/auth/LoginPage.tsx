@@ -1,6 +1,6 @@
 import { config } from "@/config";
 import { useState, useEffect } from "react";
-import { supabase } from "@/core/supabase";
+import { api } from "@/core/api";
 import { Lock, Mail, ShieldCheck, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
@@ -10,7 +10,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    api.auth.getSession().then((session) => {
       if (session) {
         onLoginSuccess();
       }
@@ -23,20 +23,18 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
     if (!authEmail || !authPassword) return;
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: authEmail,
-      password: authPassword,
-    });
-
-    if (error) {
-      setAuthError(error.message || "Invalid credentials. Access denied.");
-    } else {
-      if (data?.session?.access_token) {
-        localStorage.setItem("leads_auth_token", data.session.access_token);
+    try {
+      const data = await api.auth.login(authEmail, authPassword);
+      if (data.success) {
+        onLoginSuccess();
+      } else {
+        setAuthError(data.error || "Invalid credentials. Access denied.");
       }
-      onLoginSuccess();
+    } catch (err: any) {
+      setAuthError(err.message || "Invalid credentials. Access denied.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

@@ -1,7 +1,7 @@
 import { config } from "@/config";
 import { useEffect, useState } from "react";
 import { Route, Switch, useLocation } from "wouter";
-import { supabase } from "@/core/supabase";
+import { api } from "@/core/api";
 
 // Modular marketing pages
 import HomePage from "@/marketing/pages/HomePage";
@@ -21,29 +21,20 @@ export default function App() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    api.auth.getSession().then((sess) => {
+      setSession(sess);
       setCheckingAuth(false);
     });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogout = async () => {
-    localStorage.removeItem("leads_auth_token");
-    await supabase.auth.signOut();
+    await api.auth.logout();
     setSession(null);
     setLocation("/");
   };
 
   const handleLoginSuccess = async () => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const currentSession = await api.auth.getSession();
     setSession(currentSession || { user: { email: config.defaultUserEmail } });
     setLocation("/app");
   };

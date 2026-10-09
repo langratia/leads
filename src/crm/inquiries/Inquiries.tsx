@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Badge, toneFor } from "@/core/ui";
 import { config } from "@/config";
-import { supabase } from "@/core/supabase";
+import { api, apiFetch } from "@/core/api";
 import { createLead } from "@/crm/leads";
 import { exportToCSV } from "@/core/export-utils";
 import EmailChatThread from "./EmailChatThread";
@@ -175,12 +175,7 @@ export default function Inquiries() {
     setLoading(true);
     setLoadError("");
     try {
-      const { data, error } = await supabase
-        .from("inquiries")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await api.inquiries.list();
 
       const mapped: InquiryItem[] = (data ?? []).map((item: any) => ({
         id: item.id,
@@ -192,9 +187,9 @@ export default function Inquiries() {
         projectDescription: item.project_description || item.projectDescription || "",
         ndaRequested: Boolean(item.nda_requested || item.ndaRequested),
         source: item.source || "/contact",
-        createdAt: item.created_at || new Date().toISOString(),
+        createdAt: item.created_at || item.createdAt || new Date().toISOString(),
         status: item.status || "NEW_LEAD",
-        internalNotes: item.internal_notes || "",
+        internalNotes: item.internal_notes || item.internalNotes || "",
         avatarUrl: item.avatar_url || item.avatarUrl,
       }));
       setInquiries(mapped);
@@ -202,27 +197,20 @@ export default function Inquiries() {
         mapped.some((m) => m.id === cur) ? cur : mapped[0]?.id || "",
       );
 
-      const { data: bData, error: bError } = await supabase
-        .from("bookings")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const bData = await api.inquiries.listBookings();
 
-      if (bError) throw bError;
-
-      /* No invented fallbacks: a booking without a phone or meeting link simply
-         has neither, and the UI offers no button to act on a blank. */
       const mappedBookings: BookingItem[] = (bData ?? []).map((b: any) => ({
         id: b.id,
-        name: b.client_name || b.name || "Client",
+        name: b.name || "Client",
         email: b.email || "",
         phone: b.phone || "",
-        date: b.requested_date || b.date || "",
-        time: b.requested_time || b.time || "",
+        date: b.date || "",
+        time: b.time || "",
         notes: b.notes || "",
-        createdAt: b.created_at || new Date().toISOString(),
+        createdAt: b.created_at || b.createdAt || new Date().toISOString(),
         status: (b.status === "COMPLETED" || b.status === "CANCELLED") ? b.status : "CONFIRMED",
         outcome: b.outcome || "",
-        meetLink: b.meet_link || "",
+        meetLink: b.meet_link || b.meetLink || "",
       }));
       setBookings(mappedBookings);
       setSelectedBookingId((cur) =>
@@ -230,7 +218,7 @@ export default function Inquiries() {
       );
     } catch (err: any) {
       setLoadError(
-        err?.message === "Relation 'public.inquiries' does not exist"
+        err?.message?.includes("not exist")
           ? "The inquiries tables have not been created yet — run the 0004 migration."
           : `Could not load inquiries: ${err?.message || "unknown error"}`,
       );
@@ -263,12 +251,7 @@ export default function Inquiries() {
         }`,
       });
 
-      /* Only mark CONVERTED once the lead actually exists — the old code
-         flagged it either way, so a failed write looked like a success. */
-      await supabase
-        .from("inquiries")
-        .update({ status: "CONVERTED" })
-        .eq("id", inquiry.id);
+      await api.inquiries.update(inquiry.id, { status: "CONVERTED" });
 
       setInquiries((prev) =>
         prev.map((i) => (i.id === inquiry.id ? { ...i, status: "CONVERTED" } : i))
@@ -282,29 +265,22 @@ export default function Inquiries() {
   };
 
   const handleUpdateStatus = async (inqId: string, newStatus: InquiryItem["status"]) => {
-    const { error } = await supabase
-      .from("inquiries")
-      .update({ status: newStatus })
-      .eq("id", inqId);
-    if (error) {
-      triggerToast(`Could not save status: ${error.message}`);
-      return;
+    try {
+      await api.inquiries.update(inqId, { status: newStatus });
+      setInquiries((prev) =>
+        prev.map((i) => (i.id === inqId ? { ...i, status: newStatus } : i))
+      );
+      triggerToast(`Status set to ${newStatus.replace(/_/g, " ").toLowerCase()}.`);
+    } catch (err: any) {
+      triggerToast(`Could not save status: ${err.message}`);
     }
-    setInquiries((prev) =>
-      prev.map((i) => (i.id === inqId ? { ...i, status: newStatus } : i))
-    );
-    triggerToast(`Status set to ${newStatus.replace(/_/g, " ").toLowerCase()}.`);
   };
 
   const handleSaveNotes = async () => {
     if (!selectedInquiry) return;
     setSavingNotes(true);
     try {
-      const { error } = await supabase
-        .from("inquiries")
-        .update({ internal_notes: activeNotes })
-        .eq("id", selectedInquiry.id);
-      if (error) throw error;
+      await api.inquiries.update(selectedInquiry.id, { internalNotes: activeNotes });
       setInquiries((prev) =>
         prev.map((i) => (i.id === selectedInquiry.id ? { ...i, internalNotes: activeNotes } : i))
       );
@@ -318,22 +294,22 @@ export default function Inquiries() {
 
   const handleSaveBookingOutcome = async (status: BookingItem["status"]) => {
     if (!selectedBooking) return;
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status, outcome: activeOutcomeNotes })
-      .eq("id", selectedBooking.id);
-    if (error) {
-      triggerToast(`Could not save outcome: ${error.message}`);
-      return;
+    try {
+      await apiFetch(`/api/inquiries/bookings/${selectedBooking.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, outcome: activeOutcomeNotes }),
+      });
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === selectedBooking.id
+            ? { ...b, status, outcome: activeOutcomeNotes }
+            : b
+        )
+      );
+      triggerToast(`Consultation marked ${status.toLowerCase()}.`);
+    } catch (err: any) {
+      triggerToast(`Could not save outcome: ${err.message}`);
     }
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === selectedBooking.id
-          ? { ...b, status, outcome: activeOutcomeNotes }
-          : b
-      )
-    );
-    triggerToast(`Consultation marked ${status.toLowerCase()}.`);
   };
 
   const handleExportCSV = () => {

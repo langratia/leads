@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   User,
 } from "lucide-react";
-import { supabase } from "@/core/supabase";
+import { api } from "@/core/api";
 
 export interface EmailThreadProps {
   leadId: string;
@@ -63,9 +63,6 @@ export default function EmailChatThread({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load the real thread. If none exists the thread stays empty — the
-  // previous version invented an inbound message with a made-up timestamp,
-  // which read as conversation history the client never had.
   useEffect(() => {
     let isMounted = true;
 
@@ -73,26 +70,12 @@ export default function EmailChatThread({
       setLoading(true);
       setLoadError("");
       try {
-        const { data: thread, error } = await supabase
-          .from("email_threads")
-          .select("id")
-          .eq("participant_email", leadEmail)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        if (thread && isMounted) {
-          setThreadId(thread.id);
-          const { data: msgs, error: msgError } = await supabase
-            .from("email_messages")
-            .select("id, direction, body_text, created_at, from_email, to_email")
-            .eq("thread_id", thread.id)
-            .order("created_at", { ascending: true });
-
-          if (msgError) throw msgError;
-          if (isMounted) setMessages(msgs ?? []);
+        const data = await api.email.getThread(leadEmail);
+        if (isMounted) {
+          if (data.thread?.id) {
+            setThreadId(data.thread.id);
+          }
+          setMessages(data.messages ?? []);
         }
       } catch (err: any) {
         if (isMounted) setLoadError(`Could not load this thread: ${err?.message || "unknown error"}`);
@@ -149,52 +132,18 @@ export default function EmailChatThread({
       );
 
     try {
-      let activeThreadId = threadId;
-      if (!activeThreadId) {
-        const { data: newThread, error: threadError } = await supabase
-          .from("email_threads")
-          .insert({
-            lead_id: leadId.startsWith("inq_") ? null : leadId,
-            subject: `Inquiry: ${initialCategory || "Software Systems"} — ${companyName || leadName}`,
-            participant_email: leadEmail,
-          })
-          .select("id")
-          .maybeSingle();
-
-        if (threadError) throw threadError;
-        if (newThread?.id) {
-          activeThreadId = newThread.id;
-          setThreadId(activeThreadId);
-        }
-      }
-
       const subject = `Re: ${config.brandName} ${initialCategory || "Enterprise Software"} — ${companyName || leadName}`;
 
-      const sendRes = await fetch("/api/email/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(localStorage.getItem("leads_auth_token")
-            ? { Authorization: `Bearer ${localStorage.getItem("leads_auth_token")}` }
-            : {}),
-        },
-        body: JSON.stringify({
-          thread_id: activeThreadId,
-          to_email: leadEmail,
-          subject,
-          body_text: textToSend,
-          body_html: `<div style="font-family:sans-serif;color:#111;line-height:1.6;">${textToSend
-            .replace(/\n/g, "<br/>")
-            .replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]!)}</div>`,
-        }),
+      const res = await api.email.send({
+        thread_id: threadId,
+        to_email: leadEmail,
+        subject,
+        body_text: textToSend,
+        lead_id: leadId.startsWith("inq_") ? null : leadId,
       });
 
-      /* The bubble used to read "Dispatched to Client" no matter what
-         happened, because every failure was swallowed. It now reports the
-         outcome the request actually returned. */
-      if (!sendRes.ok) {
-        const detail = await sendRes.text().catch(() => "");
-        throw new Error(`Send failed (${sendRes.status})${detail ? `: ${detail.slice(0, 120)}` : ""}`);
+      if (res.threadId) {
+        setThreadId(res.threadId);
       }
       markDelivery("sent");
     } catch (err: any) {

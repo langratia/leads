@@ -2,48 +2,27 @@ import path from "path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
-import { handlePlaces, errorStatus } from "./functions/api/places/_handler";
+import { getRequestListener } from "@hono/node-server";
+import { app } from "./server/app";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  Object.assign(process.env, env);
 
   return {
     plugins: [
       react(),
       tailwindcss(),
       {
-        /* Dev stand-in for the Cloudflare Pages Function in functions/api/places/.
-           Both call the same handlePlaces(), so search and geocode behave
-           identically in dev and production. Auth and rate limiting are
-           production-only concerns and are not replicated here. */
-        name: "places-dev-proxy",
+        /* Integrates the unified Hono API into the Vite dev server.
+           All /api/* requests execute the full server backend directly. */
+        name: "api-server-middleware",
         configureServer(server) {
-          server.middlewares.use("/api/places", async (req, res) => {
-            res.setHeader("Content-Type", "application/json");
-
-            if (!env.PLACES_API_KEY) {
-              res.statusCode = 500;
-              res.end(
-                JSON.stringify({ success: false, error: "PLACES_API_KEY is not set. Add it to .env" })
-              );
-              return;
+          server.middlewares.use(async (req, res, next) => {
+            if (req.url && req.url.startsWith("/api")) {
+              return getRequestListener(app.fetch)(req, res);
             }
-
-            try {
-              const url = new URL(req.url || "/", "http://localhost");
-              const action = url.pathname.endsWith("/geocode") ? "geocode" : "search";
-              const { status, body } = await handlePlaces(action, url.searchParams, env);
-              res.statusCode = status;
-              res.end(JSON.stringify(body));
-            } catch (err: any) {
-              res.statusCode = errorStatus(err);
-              res.end(
-                JSON.stringify({
-                  success: false,
-                  error: err?.message || "Places proxy failed",
-                })
-              );
-            }
+            next();
           });
         },
       },
