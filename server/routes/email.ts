@@ -141,3 +141,83 @@ emailRouter.post("/send", authMiddleware, async (c) => {
     return c.json({ success: false, error: err.message }, 500);
   }
 });
+
+function extractEmail(str: string | null | undefined): string {
+  if (!str) return "";
+  const match = str.match(/<([^>]+)>/);
+  if (match && match[1]) return match[1].trim().toLowerCase();
+  return str.trim().toLowerCase();
+}
+
+// POST /api/email/webhook - Inbound email reception (Resend or webhook forwarder)
+emailRouter.post("/webhook", async (c) => {
+  const payload = await c.req.json().catch(() => ({}));
+  const data = payload.data || payload;
+
+  const rawFrom = data.from || data.sender || data.from_email || "";
+  const rawTo = Array.isArray(data.to) ? data.to[0] : (data.to || data.recipient || data.to_email || "");
+  const subject = data.subject || "Inbound message";
+  const bodyText = data.text || data.body_text || data.body || "";
+  const bodyHtml = data.html || data.body_html || null;
+  const messageId = data.email_id || data.id || data.message_id || null;
+
+  const fromEmail = extractEmail(rawFrom);
+  const toEmail = extractEmail(rawTo);
+
+  if (!fromEmail || (!bodyText && !bodyHtml)) {
+    return c.json({ success: false, message: "Ignored: Missing sender or message body" }, 200);
+  }
+
+  try {
+    const adapter = getDataAdapter(c);
+
+    // 1. Locate existing thread by participant email
+    const { thread } = await adapter.email.getThread(fromEmail);
+    let leadId = thread?.lead_id || null;
+
+    // 2. If no thread lead_id, search leads by email
+    if (!leadId) {
+      const leads = await adapter.leads.list();
+      const matchedLead = leads.find((l: any) => l.email?.toLowerCase() === fromEmail);
+      if (matchedLead) {
+        leadId = matchedLead.id;
+      }
+    }
+
+    // 3. Save inbound message and attach to thread
+    const { threadId, message } = await adapter.email.saveThreadAndMessage({
+      threadId: thread?.id,
+      leadId,
+      subject: thread?.subject || subject,
+      toEmail: toEmail || "inquiries@langratia.com",
+      fromEmail,
+      participantEmail: fromEmail,
+      direction: "INBOUND",
+      bodyText,
+      bodyHtml,
+      messageId,
+    });
+
+    // 4. Automatically log activity on matching lead
+    if (leadId) {
+      await adapter.activities
+        .create({
+          lead_id: leadId,
+          activity_type: "Email Inbound",
+          description: `Inbound email reply from ${fromEmail}: "${(subject || "").slice(0, 60)}"`,
+        })
+        .catch(() => {});
+    }
+
+    return c.json({
+      success: true,
+      threadId,
+      messageId: message.id,
+      leadId,
+    });
+  } catch (err: any) {
+    console.error("Inbound email webhook error:", err);
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+

@@ -6,6 +6,7 @@ import { MapPin, Search, TrendingUp, X, Plus } from "lucide-react";
 import { formatValue } from "@/core/format";
 import { LEAD_STATUSES, type Lead } from "@/crm/leads";
 import { PriorityBadge, stageColor } from "./lead-ui";
+import WhatsAppModal from "./WhatsAppModal";
 
 function WhatsAppIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
@@ -32,6 +33,7 @@ export default function Pipeline({
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedPriority, setSelectedPriority] = useState<string>("");
+  const [whatsAppLead, setWhatsAppLead] = useState<Lead | null>(null);
 
   /* Sectors come from the deployment config, not a hardcoded list, so a
      client deployment filters for the sectors it actually sells into. */
@@ -279,17 +281,16 @@ export default function Pipeline({
 
                       <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-800/60 pt-2.5">
                         {lead.phone || lead.whatsapp ? (
-                          <a
-                            href={`https://wa.me/${(lead.whatsapp || lead.phone || "").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                              `Hello ${lead.contact_person || lead.business_name}, following up from ${config.brandName} regarding your ${lead.category || "software"} project.`
-                            )}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 rounded-md border border-emerald-800/40 bg-emerald-950/40 px-2 py-1 text-[10px] font-semibold text-emerald-400 transition-colors hover:bg-emerald-900/50"
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWhatsAppLead(lead);
+                            }}
+                            className="flex cursor-pointer items-center gap-1 rounded-md border border-emerald-800/40 bg-emerald-950/40 px-2 py-1 text-[10px] font-semibold text-emerald-400 transition-colors hover:bg-emerald-900/50"
                           >
                             <WhatsAppIcon className="h-3 w-3" /> WhatsApp
-                          </a>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-slate-500">No phone</span>
                         )}
@@ -330,6 +331,12 @@ export default function Pipeline({
           );
         })}
       </div>
+
+      <WhatsAppModal
+        lead={whatsAppLead}
+        isOpen={!!whatsAppLead}
+        onClose={() => setWhatsAppLead(null)}
+      />
     </div>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, MessageSquare } from "lucide-react";
 import { Card, DataTable, Avatar, Toolbar, btnGhost, type Column } from "@/core/ui";
 import { StatusBadge, PriorityBadge, SourceBadge, leadContact } from "./lead-ui";
 import { formatDate, formatValue } from "@/core/format";
 import { exportToCSV } from "@/core/export-utils";
 import { LEAD_STATUSES, LEAD_PRIORITIES, type Lead } from "@/crm/leads";
+import WhatsAppModal from "./WhatsAppModal";
 
 export default function AllLeads({
   leads,
@@ -25,6 +26,7 @@ export default function AllLeads({
   const [priority, setPriority] = useState("");
   const [source, setSource] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [whatsAppLead, setWhatsAppLead] = useState<Lead | null>(null);
 
   const sources = useMemo(
     () => Array.from(new Set(leads.map((l) => l.lead_source))).sort(),
@@ -158,6 +160,31 @@ export default function AllLeads({
       ),
     },
     { key: "created", header: "Created", render: (r) => <span className="text-slate-500">{formatDate(r.created_at)}</span> },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (r) => {
+        const hasPhone = Boolean(r.whatsapp || r.phone);
+        return (
+          <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              disabled={!hasPhone}
+              onClick={() => setWhatsAppLead(r)}
+              title={hasPhone ? `WhatsApp outreach to ${r.business_name}` : "No phone available"}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all ${
+                hasPhone
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 cursor-pointer"
+                  : "border-slate-800/60 bg-transparent text-slate-600 opacity-30 cursor-not-allowed"
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      },
+    },
   ];
 
   const bulkCls =
@@ -232,6 +259,12 @@ export default function AllLeads({
           </span>
         )}
       </div>
+
+      <WhatsAppModal
+        lead={whatsAppLead}
+        isOpen={!!whatsAppLead}
+        onClose={() => setWhatsAppLead(null)}
+      />
     </div>
   );
 }

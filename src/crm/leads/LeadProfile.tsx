@@ -21,11 +21,13 @@ import {
   Clock,
   Sparkles,
   Building,
+  MessageSquare,
 } from "lucide-react";
 import { Badge, surface } from "@/core/ui";
 import { StatusBadge, PriorityBadge, SourceBadge, stageColor } from "./lead-ui";
 import { formatDateTime, formatDate, formatValue, todayIso } from "@/core/format";
 import { LEAD_STATUSES, ACTIVITY_TYPES, FOLLOWUP_METHODS, addActivity, addFollowup, completeFollowup, convertLead, deleteLead, updateLead, type Lead, type LeadActivity, type LeadFollowup } from "@/crm/leads";
+import WhatsAppModal from "./WhatsAppModal";
 
 function WhatsAppIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
@@ -55,6 +57,7 @@ export default function LeadProfile({
   const [actType, setActType] = useState("Call");
   const [actDesc, setActDesc] = useState("");
   const [showFollowup, setShowFollowup] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [fuDate, setFuDate] = useState(todayIso());
   const [fuTime, setFuTime] = useState("");
   const [fuMethod, setFuMethod] = useState("Call");
@@ -218,6 +221,17 @@ export default function LeadProfile({
               {busy === "convert" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Handshake className="h-3.5 w-3.5" />}
               Convert to Customer
             </button>
+
+            <button
+              type="button"
+              onClick={() => setShowWhatsApp(true)}
+              disabled={!lead.whatsapp && !lead.phone}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-40 transition-colors active:scale-95 shadow-sm shadow-emerald-500/10"
+              title={lead.whatsapp || lead.phone ? "Open 1-Click WhatsApp Sales Pitch" : "No phone number available"}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              WhatsApp Pitch
+            </button>
           </div>
         </div>
 
@@ -274,7 +288,21 @@ export default function LeadProfile({
               <div className="space-y-1">
                 <Row label="Name">{lead.contact_person || "—"}</Row>
                 <Row label="Phone">{lead.phone || "—"}</Row>
-                <Row label="WhatsApp">{lead.whatsapp || lead.phone || "—"}</Row>
+                <Row label="WhatsApp">
+                  {lead.whatsapp || lead.phone ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowWhatsApp(true)}
+                      className="text-emerald-400 hover:text-emerald-300 font-mono inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Click to launch WhatsApp pitch modal"
+                    >
+                      <WhatsAppIcon className="h-3 w-3" />
+                      {lead.whatsapp || lead.phone}
+                    </button>
+                  ) : (
+                    "—"
+                  )}
+                </Row>
                 <Row label="Email">{lead.email || "—"}</Row>
                 <Row label="Website">{lead.website || "—"}</Row>
               </div>
@@ -487,16 +515,13 @@ export default function LeadProfile({
               </a>
             )}
             {(lead.whatsapp || lead.phone) && (
-              <a
-                href={`https://wa.me/${(lead.whatsapp || lead.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(
-                  `Hello ${lead.contact_person || lead.business_name}, following up from ${config.brandName} regarding your ${lead.category || "software"} project.`
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20"
+              <button
+                type="button"
+                onClick={() => setShowWhatsApp(true)}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
               >
                 <WhatsAppIcon className="h-3.5 w-3.5 text-emerald-400" /> WhatsApp
-              </a>
+              </button>
             )}
             {lead.email && (
               <a
@@ -517,6 +542,13 @@ export default function LeadProfile({
           </div>
         </div>
       </div>
+
+      <WhatsAppModal
+        lead={lead}
+        isOpen={showWhatsApp}
+        onClose={() => setShowWhatsApp(false)}
+        onActivityLogged={onChanged}
+      />
     </div>
   );
 }

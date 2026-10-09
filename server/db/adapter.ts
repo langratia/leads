@@ -574,19 +574,24 @@ export function getDataAdapter(c?: Context) {
         subject: string;
         toEmail: string;
         fromEmail: string;
+        participantEmail?: string;
+        direction?: "INBOUND" | "OUTBOUND";
         bodyText?: string;
         bodyHtml?: string;
         messageId?: string | null;
         userId?: string | null;
       }) {
         let activeThreadId = input.threadId;
+        const participant =
+          input.participantEmail ||
+          (input.direction === "INBOUND" ? input.fromEmail : input.toEmail);
 
         if (!activeThreadId) {
           const newThread = {
             id: `th_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             lead_id: input.leadId && !input.leadId.startsWith("inq_") ? input.leadId : null,
             subject: input.subject,
-            participant_email: input.toEmail,
+            participant_email: participant,
             status: "OPEN",
             created_at: new Date().toISOString(),
           };
@@ -608,7 +613,7 @@ export function getDataAdapter(c?: Context) {
         const msgRecord = {
           id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           thread_id: activeThreadId,
-          direction: "OUTBOUND",
+          direction: input.direction || "OUTBOUND",
           from_email: input.fromEmail,
           to_email: input.toEmail,
           body_text: input.bodyText || "",
