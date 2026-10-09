@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Users,
   Handshake,
@@ -9,12 +10,14 @@ import {
   ArrowRight,
   CalendarClock,
   Inbox,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Card, StatCard, Avatar, btnGhost } from "@/core/ui";
 import { StatusBadge, PriorityBadge } from "./lead-ui";
 import { formatDateTime, formatDate, formatValue, todayIso } from "@/core/format";
 import { type Lead, type LeadFollowup } from "@/crm/leads";
 import { navigateSection } from "./leads-hooks";
+import ExecutiveReportModal from "./ExecutiveReportModal";
 
 export interface RecentEvent {
   lead: Lead;
@@ -37,6 +40,8 @@ export default function Overview({
   onAddLead: () => void;
   onOpenLead: (id: string) => void;
 }) {
+  const [showReportModal, setShowReportModal] = useState(false);
+
   const today = todayIso();
   const count = (s: string) => leads.filter((l) => l.status === s).length;
   const total = leads.length;
@@ -62,6 +67,31 @@ export default function Overview({
 
   return (
     <div className="space-y-6">
+      {/* COMMAND & EXECUTIVE REPORT BAR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-[#0d121d] p-3.5 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400 border border-sky-500/30">
+            <TrendingUp className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-xs font-bold text-white tracking-wide flex items-center gap-2">
+              Commercial Operations & Revenue Velocity
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Live pipeline metrics, closed-won conversions, and executive board intelligence.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowReportModal(true)}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 px-3.5 py-1.5 text-xs font-bold text-sky-300 transition-colors cursor-pointer shadow-xs"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5 text-sky-400" />
+          <span>Executive Board Report</span>
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Pipeline value"
@@ -243,6 +273,13 @@ export default function Overview({
           <CalendarClock className="h-3.5 w-3.5" /> Follow-ups
         </button>
       </div>
+
+      <ExecutiveReportModal
+        leads={leads}
+        followups={followups}
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
     </div>
   );
 }

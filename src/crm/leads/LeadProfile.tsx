@@ -23,6 +23,8 @@ import {
   Building,
   MessageSquare,
   Calendar,
+  FileText,
+  Zap,
 } from "lucide-react";
 import { Badge, surface } from "@/core/ui";
 import { StatusBadge, PriorityBadge, SourceBadge, stageColor } from "./lead-ui";
@@ -30,6 +32,7 @@ import { formatDateTime, formatDate, formatValue, todayIso } from "@/core/format
 import { LEAD_STATUSES, ACTIVITY_TYPES, FOLLOWUP_METHODS, addActivity, addFollowup, completeFollowup, convertLead, deleteLead, updateLead, type Lead, type LeadActivity, type LeadFollowup } from "@/crm/leads";
 import WhatsAppModal from "./WhatsAppModal";
 import LeadDossierModal from "./LeadDossierModal";
+import ProposalModal from "./ProposalModal";
 import { downloadICS, getGoogleCalendarUrl } from "@/core/calendar-utils";
 
 function WhatsAppIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
@@ -62,12 +65,54 @@ export default function LeadProfile({
   const [showFollowup, setShowFollowup] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showDossier, setShowDossier] = useState(false);
+  const [showProposal, setShowProposal] = useState(false);
   const [fuDate, setFuDate] = useState(todayIso());
   const [fuTime, setFuTime] = useState("");
   const [fuMethod, setFuMethod] = useState("Call");
   const [error, setError] = useState("");
 
   const stageIdx = LEAD_STATUSES.indexOf(lead.status as any);
+
+  const applyThreeStepCadence = async () => {
+    setBusy("cadence");
+    setError("");
+    try {
+      const today = new Date();
+
+      // Touch 1: Day 2 (Quotation Feedback)
+      const d2 = new Date(today);
+      d2.setDate(d2.getDate() + 2);
+      await addFollowup(lead.id, {
+        followup_date: d2.toISOString().split("T")[0],
+        method: "WhatsApp",
+        notes: "Touch 1: Review quotation & scope feedback check-in",
+      });
+
+      // Touch 2: Day 5 (Architecture & Phased Options)
+      const d5 = new Date(today);
+      d5.setDate(d5.getDate() + 5);
+      await addFollowup(lead.id, {
+        followup_date: d5.toISOString().split("T")[0],
+        method: "Call",
+        notes: "Touch 2: Architecture alignment & phased payment review",
+      });
+
+      // Touch 3: Day 10 (Sprint Capacity Close)
+      const d10 = new Date(today);
+      d10.setDate(d10.getDate() + 10);
+      await addFollowup(lead.id, {
+        followup_date: d10.toISOString().split("T")[0],
+        method: "Email",
+        notes: "Touch 3: Sprint allocation & executive decision close",
+      });
+
+      await onChanged();
+    } catch (err: any) {
+      setError(err?.message || "Failed to schedule sales cadence.");
+    } finally {
+      setBusy("");
+    }
+  };
 
   const saveStatus = async (newStatus: string) => {
     setBusy("status");
@@ -245,6 +290,16 @@ export default function LeadProfile({
             >
               <Sparkles className="h-3.5 w-3.5 text-sky-400" />
               AI Strategy Dossier
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowProposal(true)}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/25 transition-colors active:scale-95 shadow-sm shadow-amber-500/10"
+              title="Build B2B Software Scoping Quotation & Proposal in UGX / USD"
+            >
+              <FileText className="h-3.5 w-3.5 text-amber-400" />
+              Quote & Proposal
             </button>
           </div>
         </div>
@@ -427,12 +482,28 @@ export default function LeadProfile({
           <section className="rounded-xl border border-slate-800 bg-[#07090e] p-3.5 space-y-2.5 shadow-md">
             <div className="flex items-center justify-between">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Follow-up Schedule</h4>
-              <button
-                onClick={() => setShowFollowup((v) => !v)}
-                className="flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
-              >
-                <CalendarPlus className="h-3.5 w-3.5" /> + Schedule
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={applyThreeStepCadence}
+                  disabled={busy === "cadence"}
+                  className="flex items-center gap-1 rounded bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 transition-colors cursor-pointer disabled:opacity-40"
+                  title="Automatically schedule Day 2, Day 5, and Day 10 enterprise follow-up cadence"
+                >
+                  {busy === "cadence" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Zap className="h-3 w-3 text-amber-400" />
+                  )}
+                  3-Touch Cadence
+                </button>
+                <button
+                  onClick={() => setShowFollowup((v) => !v)}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
+                >
+                  <CalendarPlus className="h-3.5 w-3.5" /> + Schedule
+                </button>
+              </div>
             </div>
 
             {showFollowup && (
@@ -679,6 +750,13 @@ export default function LeadProfile({
         lead={lead}
         isOpen={showDossier}
         onClose={() => setShowDossier(false)}
+      />
+
+      <ProposalModal
+        lead={lead}
+        isOpen={showProposal}
+        onClose={() => setShowProposal(false)}
+        onProposalSent={onChanged}
       />
     </div>
   );

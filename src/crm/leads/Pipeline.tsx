@@ -17,6 +17,15 @@ function WhatsAppIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   );
 }
 
+const STAGE_WEIGHTS: Record<string, number> = {
+  New: 0.1,
+  Contacted: 0.25,
+  "Meeting Scheduled": 0.5,
+  "Proposal Sent": 0.75,
+  Won: 1.0,
+  Lost: 0.0,
+};
+
 export default function Pipeline({
   leads,
   onOpenLead,
@@ -75,6 +84,15 @@ export default function Pipeline({
   );
   const totalPipelineValue = useMemo(
     () => openDeals.reduce((sum, l) => sum + (l.estimated_value || 0), 0),
+    [openDeals],
+  );
+
+  const weightedForecastValue = useMemo(
+    () =>
+      openDeals.reduce((sum, l) => {
+        const weight = STAGE_WEIGHTS[l.status] ?? 0.1;
+        return sum + (l.estimated_value || 0) * weight;
+      }, 0),
     [openDeals],
   );
 
@@ -141,19 +159,33 @@ export default function Pipeline({
           </select>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0b0f19] px-3 py-2">
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+        <div className="flex shrink-0 items-center gap-2.5">
+          {/* Total Pipeline */}
+          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0b0f19] px-3 py-1.5">
+            <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
             <div>
-              <span className="mr-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Pipeline
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Total
               </span>
-              <span className="text-xs font-bold tabular-nums text-emerald-300">
+              <span className="text-xs font-bold tabular-nums text-slate-200">
                 {formatValue(totalPipelineValue)}
               </span>
-              <span className="ml-1 text-[10px] text-slate-500">({openDeals.length} open)</span>
             </div>
           </div>
+
+          {/* Weighted Probability Forecast */}
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 shadow-xs">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div>
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                Weighted Forecast
+              </span>
+              <span className="text-xs font-bold tabular-nums text-emerald-300 font-mono">
+                {formatValue(weightedForecastValue)}
+              </span>
+            </div>
+          </div>
+
           {onAddLead && (
             <button
               onClick={onAddLead}
@@ -267,17 +299,37 @@ export default function Pipeline({
                         )}
                       </div>
 
-                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                        <PriorityBadge priority={lead.priority} />
-                        {lead.lead_score >= 60 && (
-                          <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-emerald-400">
-                            {lead.lead_score}
-                          </span>
-                        )}
-                        <span className="ml-auto rounded border border-slate-800 bg-[#07090e] px-1.5 py-0.5 text-[10px] text-slate-500">
-                          {lead.lead_source}
-                        </span>
-                      </div>
+                      {(() => {
+                        const updatedDate = new Date(lead.updated_at || lead.created_at);
+                        const daysInStage = Math.max(0, Math.floor((Date.now() - updatedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                        const isStagnant = daysInStage >= 7 && lead.status !== "Won" && lead.status !== "Lost";
+
+                        return (
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                            <PriorityBadge priority={lead.priority} />
+                            {lead.lead_score >= 60 && (
+                              <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-emerald-400">
+                                {lead.lead_score}
+                              </span>
+                            )}
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold tabular-nums ${
+                                isStagnant
+                                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                                  : daysInStage >= 4
+                                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
+                                  : "bg-slate-800 text-slate-400 border border-slate-700/60"
+                              }`}
+                              title={`Stage duration: ${daysInStage} days`}
+                            >
+                              {isStagnant ? `⚠️ ${daysInStage}d stagnant` : `${daysInStage}d`}
+                            </span>
+                            <span className="ml-auto rounded border border-slate-800 bg-[#07090e] px-1.5 py-0.5 text-[10px] text-slate-500">
+                              {lead.lead_source}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-800/60 pt-2.5">
                         {lead.phone || lead.whatsapp ? (
